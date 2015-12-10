@@ -405,6 +405,7 @@
         '../../src/ast/ast-literal-reindexer.h',
         '../../src/ast/ast-numbering.cc',
         '../../src/ast/ast-numbering.h',
+        '../../src/ast/ast-rewrite.cc',
         '../../src/ast/ast-value-factory.cc',
         '../../src/ast/ast-value-factory.h',
         '../../src/ast/ast.cc',
