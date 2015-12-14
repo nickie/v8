@@ -1728,6 +1728,7 @@ Statement* Parser::ParseExportDefault(bool* ok) {
       ExpressionClassifier classifier;
       Expression* expr = ParseAssignmentExpression(true, &classifier, CHECK_OK);
       ValidateExpression(&classifier, CHECK_OK);
+      expr = RewriteExpression(&classifier, expr);
 
       ExpectSemicolon(CHECK_OK);
       result = factory()->NewExpressionStatement(expr, pos);
@@ -2549,6 +2550,7 @@ void Parser::ParseVariableDeclarations(VariableDeclarationContext var_context,
       if (!*ok) return;
       ValidateExpression(&classifier, ok);
       if (!*ok) return;
+      value = RewriteExpression(&classifier, value);
       variable_loc.end_pos = scanner()->location().end_pos;
 
       if (!parsing_result->first_initializer_loc.IsValid()) {
@@ -4928,6 +4930,7 @@ ClassLiteral* Parser::ParseClassLiteral(const AstRawString* name,
     ExpressionClassifier classifier;
     extends = ParseLeftHandSideExpression(&classifier, CHECK_OK);
     ValidateExpression(&classifier, CHECK_OK);
+    extends = RewriteExpression(&classifier, extends);
   } else {
     block_scope->set_start_position(scanner()->location().end_pos);
   }
@@ -4953,6 +4956,7 @@ ClassLiteral* Parser::ParseClassLiteral(const AstRawString* name,
         &checker, in_class, has_extends, is_static, &is_computed_name,
         &has_seen_constructor, &classifier, CHECK_OK);
     ValidateExpression(&classifier, CHECK_OK);
+    property = RewriteObjectLiteralProperty(&classifier, property);
 
     if (has_seen_constructor && constructor == NULL) {
       constructor = GetPropertyValue(property)->AsFunctionLiteral();

@@ -53,16 +53,24 @@ class ExpressionClassifier {
          ArrowFormalParametersProduction | CoverInitializedNameProduction)
   };
 
-  enum FunctionProperties { NonSimpleParameter = 1 << 0 };
+  enum FunctionProperties {
+    NonSimpleParameter = 1 << 0
+  };
+
+  enum RewriteFlags {
+    DestructiveAssignment = 1 << 0
+  };
 
   ExpressionClassifier()
       : invalid_productions_(0),
         function_properties_(0),
+        rewrite_flags_(0),
         duplicate_finder_(nullptr) {}
 
   explicit ExpressionClassifier(DuplicateFinder* duplicate_finder)
       : invalid_productions_(0),
         function_properties_(0),
+        rewrite_flags_(0),
         duplicate_finder_(duplicate_finder) {}
 
   bool is_valid(unsigned productions) const {
@@ -150,6 +158,18 @@ class ExpressionClassifier {
 
   void RecordNonSimpleParameter() {
     function_properties_ |= NonSimpleParameter;
+  }
+
+  bool is_destructive_assignment() const {
+    return (rewrite_flags_ & DestructiveAssignment);
+  }
+
+  void FlagDestructiveAssignment() {
+    rewrite_flags_ |= DestructiveAssignment;
+  }
+
+  void UnflagDestructiveAssignment() {
+    rewrite_flags_ &= ~DestructiveAssignment;
   }
 
   void RecordExpressionError(const Scanner::Location& loc,
@@ -332,11 +352,15 @@ class ExpressionClassifier {
         arrow_formal_parameters_error_ = inner.binding_pattern_error_;
       }
     }
+
+    // Rewrite information is propagated
+    rewrite_flags_ |= inner.rewrite_flags_;
   }
 
  private:
   unsigned invalid_productions_;
   unsigned function_properties_;
+  unsigned rewrite_flags_;
   Error expression_error_;
   Error formal_parameter_initializer_error_;
   Error binding_pattern_error_;
