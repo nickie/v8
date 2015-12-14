@@ -32,11 +32,8 @@ void Parser::PatternRewriter::DeclareAndInitializeVariables(
 
 
 void Parser::PatternRewriter::RewriteDestructuringAssignment(
-    Parser* parser, RewritableAssignmentExpression* to_rewrite, Scope* scope,
-    bool* ok) {
+    Parser* parser, Expression* to_rewrite, Scope* scope, bool* ok) {
   PatternRewriter rewriter;
-
-  DCHECK(!to_rewrite->is_rewritten());
 
   rewriter.scope_ = scope;
   rewriter.parser_ = parser;

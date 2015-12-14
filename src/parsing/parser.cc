@@ -23,6 +23,9 @@
 #include "src/runtime/runtime.h"
 #include "src/string-stream.h"
 
+// !!! nickie !!!
+#include "src/ast/prettyprinter.h"
+
 namespace v8 {
 namespace internal {
 
@@ -1096,7 +1099,6 @@ FunctionLiteral* Parser::DoParseProgram(ParseInfo* info) {
     }
 
     if (ok) {
-      ParserTraits::RewriteDestructuringAssignments();
       result = factory()->NewFunctionLiteral(
           ast_value_factory()->empty_string(), ast_value_factory(), scope_,
           body, function_state.materialized_literal_count(),
@@ -4410,11 +4412,6 @@ FunctionLiteral* Parser::ParseFunctionLiteral(
         allow_harmony_destructuring_bind()) {
       CheckConflictingVarDeclarations(scope, CHECK_OK);
     }
-
-    if (body) {
-      // If body can be inspected, rewrite queued destructuring assignments
-      ParserTraits::RewriteDestructuringAssignments();
-    }
   }
 
   bool has_duplicate_parameters =
@@ -4543,35 +4540,15 @@ Statement* Parser::BuildAssertIsCoercible(Variable* var) {
 }
 
 
-class InitializerRewriter : public AstExpressionVisitor {
- public:
-  InitializerRewriter(uintptr_t stack_limit, Expression* root, Parser* parser,
-                      Scope* scope)
-      : AstExpressionVisitor(stack_limit, root),
-        parser_(parser),
-        scope_(scope) {}
-
- private:
-  void VisitExpression(Expression* expr) {
+void Parser::RewriteParameterInitializer(Expression* expr, Scope* scope) {
     RewritableAssignmentExpression* to_rewrite =
         expr->AsRewritableAssignmentExpression();
     if (to_rewrite == nullptr || to_rewrite->is_rewritten()) return;
 
     bool ok = true;
-    Parser::PatternRewriter::RewriteDestructuringAssignment(parser_, to_rewrite,
-                                                            scope_, &ok);
+    PatternRewriter::RewriteDestructuringAssignment(this, to_rewrite,
+                                                    scope, &ok);
     DCHECK(ok);
-  }
-
- private:
-  Parser* parser_;
-  Scope* scope_;
-};
-
-
-void Parser::RewriteParameterInitializer(Expression* expr, Scope* scope) {
-  InitializerRewriter rewriter(stack_limit_, expr, this, scope);
-  rewriter.Run();
 }
 
 
@@ -6529,8 +6506,31 @@ ObjectLiteralProperty* ParserTraits::RewriteObjectLiteralProperty(
 
 
 Expression* Parser::RewriteExpression(ExpressionClassifier* classifier,
-                                            Expression* expr, bool finished) {
-  return expr; // !!! nickie
+                                      Expression* expr, bool finished) {
+  if (classifier->is_destructive_assignment()) {
+#if 0
+    base::OS::PrintError("rewriting...\n");
+    ast_value_factory()->Internalize(Isolate::Current());
+    PrettyPrinter::PrintOut(Isolate::Current(), expr);
+    fflush(stdout);
+    fflush(stderr);
+#endif
+
+    bool ok = true;
+    PatternRewriter::RewriteDestructuringAssignment(this, expr, scope_, &ok);
+    DCHECK(ok);
+
+#if 0
+    base::OS::PrintError("...rewritten\n");
+    PrettyPrinter::PrintOut(Isolate::Current(), expr);
+    fflush(stdout);
+    fflush(stderr);
+#endif
+    if (finished) {
+      classifier->UnflagDestructiveAssignment();
+    }
+  }
+  return expr;
 }
 
 
@@ -6548,41 +6548,6 @@ ObjectLiteralProperty* Parser::RewriteObjectLiteralProperty(
   return factory()->NewObjectLiteralProperty(
       key, value, property->kind(),
       property->is_static(), property->is_computed_name());
-}
-
-
-void ParserTraits::RewriteDestructuringAssignments() {
-  parser_->RewriteDestructuringAssignments();
-}
-
-
-void Parser::RewriteDestructuringAssignments() {
-  FunctionState* func = function_state_;
-  if (!allow_harmony_destructuring_assignment()) return;
-  const List<DestructuringAssignment>& assignments =
-      func->destructuring_assignments_to_rewrite();
-  for (int i = assignments.length() - 1; i >= 0; --i) {
-    // Rewrite list in reverse, so that nested assignment patterns are rewritten
-    // correctly.
-    DestructuringAssignment pair = assignments.at(i);
-    RewritableAssignmentExpression* to_rewrite =
-        pair.assignment->AsRewritableAssignmentExpression();
-    Scope* scope = pair.scope;
-    DCHECK_NOT_NULL(to_rewrite);
-    if (!to_rewrite->is_rewritten()) {
-      bool ok = true;
-      PatternRewriter::RewriteDestructuringAssignment(this, to_rewrite, scope,
-                                                      &ok);
-      DCHECK(ok);
-    }
-  }
-}
-
-
-void ParserTraits::QueueDestructuringAssignmentForRewriting(Expression* expr) {
-  DCHECK(expr->IsRewritableAssignmentExpression());
-  parser_->function_state_->AddDestructuringAssignment(
-      Parser::DestructuringAssignment(expr, parser_->scope_));
 }
 
 

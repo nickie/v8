@@ -908,12 +908,6 @@ class ParserTraits {
       ExpressionClassifier* classifier, ObjectLiteralProperty* property,
       bool finished = true);
 
-  // Rewrite all DestructuringAssignments in the current FunctionState.
-  V8_INLINE void RewriteDestructuringAssignments();
-
-  V8_INLINE void QueueDestructuringAssignmentForRewriting(
-      Expression* assignment);
-
  private:
   Parser* parser_;
 };
@@ -1055,8 +1049,7 @@ class Parser : public ParserBase<ParserTraits> {
         ZoneList<const AstRawString*>* names, bool* ok);
 
     static void RewriteDestructuringAssignment(
-        Parser* parser, RewritableAssignmentExpression* expr, Scope* Scope,
-        bool* ok);
+        Parser* parser, Expression* expr, Scope* Scope, bool* ok);
 
     void set_initializer_position(int pos) { initializer_position_ = pos; }
 
@@ -1265,9 +1258,6 @@ class Parser : public ParserBase<ParserTraits> {
       ExpressionClassifier* classifier, ObjectLiteralProperty* property,
       bool finished = true);
 
-  V8_INLINE void RewriteDestructuringAssignments();
-
-  friend class InitializerRewriter;
   void RewriteParameterInitializer(Expression* expr, Scope* scope);
 
   Scanner scanner_;

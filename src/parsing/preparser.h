@@ -936,10 +936,6 @@ class PreParserTraits {
                                            PreParserExpressionList args,
                                            int pos);
 
-  inline void RewriteDestructuringAssignments() {}
-
-  inline void QueueDestructuringAssignmentForRewriting(PreParserExpression) {}
-
   inline PreParserExpression RewriteExpression(ExpressionClassifier* classifier,
                                                PreParserExpression expr,
                                                bool finished = true) {

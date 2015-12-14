@@ -177,15 +177,6 @@ class ParserBase : public Traits {
     Scope* outer_scope_;
   };
 
-  struct DestructuringAssignment {
-   public:
-    DestructuringAssignment(ExpressionT expression, Scope* scope)
-        : assignment(expression), scope(scope) {}
-
-    ExpressionT assignment;
-    Scope* scope;
-  };
-
   class FunctionState BASE_EMBEDDED {
    public:
     FunctionState(FunctionState** function_state_stack, Scope** scope_stack,
@@ -238,15 +229,6 @@ class ParserBase : public Traits {
 
     typename Traits::Type::Factory* factory() { return factory_; }
 
-    const List<DestructuringAssignment>& destructuring_assignments_to_rewrite()
-        const {
-      return destructuring_assignments_to_rewrite_;
-    }
-
-    void AddDestructuringAssignment(DestructuringAssignment pair) {
-      destructuring_assignments_to_rewrite_.Add(pair);
-    }
-
    private:
     // Used to assign an index to each literal that needs materialization in
     // the function.  Includes regexp literals, and boilerplate for object and
@@ -275,10 +257,6 @@ class ParserBase : public Traits {
     FunctionState* outer_function_state_;
     Scope** scope_stack_;
     Scope* outer_scope_;
-
-    List<DestructuringAssignment> destructuring_assignments_to_rewrite_;
-
-    void RewriteDestructuringAssignments();
 
     typename Traits::Type::Factory* factory_;
 
@@ -2141,7 +2119,6 @@ ParserBase<Traits>::ParseAssignmentExpression(bool accept_IN, int flags,
 
   if (is_destructuring_assignment) {
     result = factory()->NewRewritableAssignmentExpression(result);
-    Traits::QueueDestructuringAssignmentForRewriting(result);
     classifier->FlagDestructiveAssignment(); // nickie !!! the above will go
   }
 
@@ -3126,8 +3103,6 @@ ParserBase<Traits>::ParseArrowFunctionLiteral(
     if (is_strict(language_mode()) || allow_harmony_sloppy()) {
       this->CheckConflictingVarDeclarations(formal_parameters.scope, CHECK_OK);
     }
-
-    Traits::RewriteDestructuringAssignments();
   }
 
   FunctionLiteralT function_literal = factory()->NewFunctionLiteral(

@@ -303,6 +303,8 @@ class ExpressionClassifier {
 
   void Accumulate(const ExpressionClassifier& inner,
                   unsigned productions = StandardProductions) {
+    // Rewrite information is always propagated.
+    rewrite_flags_ |= inner.rewrite_flags_;
     // Propagate errors from inner, but don't overwrite already recorded
     // errors.
     unsigned non_arrow_inner_invalid_productions =
@@ -352,9 +354,6 @@ class ExpressionClassifier {
         arrow_formal_parameters_error_ = inner.binding_pattern_error_;
       }
     }
-
-    // Rewrite information is propagated
-    rewrite_flags_ |= inner.rewrite_flags_;
   }
 
  private:
