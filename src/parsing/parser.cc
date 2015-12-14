@@ -1728,7 +1728,7 @@ Statement* Parser::ParseExportDefault(bool* ok) {
       ExpressionClassifier classifier;
       Expression* expr = ParseAssignmentExpression(true, &classifier, CHECK_OK);
       ValidateExpression(&classifier, CHECK_OK);
-      expr = RewriteExpression(&classifier, expr);
+      expr = ParserTraits::RewriteExpression(&classifier, expr);
 
       ExpectSemicolon(CHECK_OK);
       result = factory()->NewExpressionStatement(expr, pos);
@@ -2550,7 +2550,7 @@ void Parser::ParseVariableDeclarations(VariableDeclarationContext var_context,
       if (!*ok) return;
       ValidateExpression(&classifier, ok);
       if (!*ok) return;
-      value = RewriteExpression(&classifier, value);
+      value = ParserTraits::RewriteExpression(&classifier, value);
       variable_loc.end_pos = scanner()->location().end_pos;
 
       if (!parsing_result->first_initializer_loc.IsValid()) {
@@ -4930,7 +4930,7 @@ ClassLiteral* Parser::ParseClassLiteral(const AstRawString* name,
     ExpressionClassifier classifier;
     extends = ParseLeftHandSideExpression(&classifier, CHECK_OK);
     ValidateExpression(&classifier, CHECK_OK);
-    extends = RewriteExpression(&classifier, extends);
+    extends = ParserTraits::RewriteExpression(&classifier, extends);
   } else {
     block_scope->set_start_position(scanner()->location().end_pos);
   }
@@ -4956,7 +4956,7 @@ ClassLiteral* Parser::ParseClassLiteral(const AstRawString* name,
         &checker, in_class, has_extends, is_static, &is_computed_name,
         &has_seen_constructor, &classifier, CHECK_OK);
     ValidateExpression(&classifier, CHECK_OK);
-    property = RewriteObjectLiteralProperty(&classifier, property);
+    property = ParserTraits::RewriteObjectLiteralProperty(&classifier, property);
 
     if (has_seen_constructor && constructor == NULL) {
       constructor = GetPropertyValue(property)->AsFunctionLiteral();
@@ -6512,6 +6512,42 @@ void Parser::SetLanguageMode(Scope* scope, LanguageMode mode) {
 void Parser::RaiseLanguageMode(LanguageMode mode) {
   SetLanguageMode(scope_,
                   static_cast<LanguageMode>(scope_->language_mode() | mode));
+}
+
+
+Expression* ParserTraits::RewriteExpression(ExpressionClassifier* classifier,
+                                            Expression* expr, bool finished) {
+  return parser_->RewriteExpression(classifier, expr, finished);
+}
+
+
+ObjectLiteralProperty* ParserTraits::RewriteObjectLiteralProperty(
+    ExpressionClassifier* classifier, ObjectLiteralProperty* property,
+    bool finished) {
+  return parser_->RewriteObjectLiteralProperty(classifier, property, finished);
+}
+
+
+Expression* Parser::RewriteExpression(ExpressionClassifier* classifier,
+                                            Expression* expr, bool finished) {
+  return expr; // !!! nickie
+}
+
+
+ObjectLiteralProperty* Parser::RewriteObjectLiteralProperty(
+    ExpressionClassifier* classifier, ObjectLiteralProperty* property,
+    bool finished) {
+  if (property == nullptr) {
+    return property;
+  }
+  Expression* key = RewriteExpression(classifier, property->key(), false);
+  Expression* value = RewriteExpression(classifier, property->value(), finished);
+  if (key == property->key() && value == property->value()) {
+    return property;
+  }
+  return factory()->NewObjectLiteralProperty(
+      key, value, property->kind(),
+      property->is_static(), property->is_computed_name());
 }
 
 

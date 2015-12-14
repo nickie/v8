@@ -940,6 +940,18 @@ class PreParserTraits {
 
   inline void QueueDestructuringAssignmentForRewriting(PreParserExpression) {}
 
+  inline PreParserExpression RewriteExpression(ExpressionClassifier* classifier,
+                                               PreParserExpression expr,
+                                               bool finished = true) {
+    return expr;
+  }
+
+  inline PreParserExpression RewriteObjectLiteralProperty(
+      ExpressionClassifier* classifier, PreParserExpression property,
+      bool finished = true) {
+    return property;
+  }
+
  private:
   PreParser* pre_parser_;
 };

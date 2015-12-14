@@ -900,6 +900,14 @@ class ParserTraits {
                                       ZoneList<v8::internal::Expression*>* args,
                                       int pos);
 
+  // Rewrite stuff !!! nickie
+  V8_INLINE Expression* RewriteExpression(ExpressionClassifier* classifier,
+                                          Expression* expr,
+                                          bool finished = true);
+  V8_INLINE ObjectLiteralProperty* RewriteObjectLiteralProperty(
+      ExpressionClassifier* classifier, ObjectLiteralProperty* property,
+      bool finished = true);
+
   // Rewrite all DestructuringAssignments in the current FunctionState.
   V8_INLINE void RewriteDestructuringAssignments();
 
@@ -1249,6 +1257,13 @@ class Parser : public ParserBase<ParserTraits> {
 
   void SetLanguageMode(Scope* scope, LanguageMode mode);
   void RaiseLanguageMode(LanguageMode mode);
+
+  V8_INLINE Expression* RewriteExpression(ExpressionClassifier* classifier,
+                                          Expression* expr,
+                                          bool finished = true);
+  V8_INLINE ObjectLiteralProperty* RewriteObjectLiteralProperty(
+      ExpressionClassifier* classifier, ObjectLiteralProperty* property,
+      bool finished = true);
 
   V8_INLINE void RewriteDestructuringAssignments();
 
