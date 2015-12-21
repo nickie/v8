@@ -60,6 +60,12 @@ void Rewriter::VisitClassLiteral(ClassLiteral* class_literal) {
 
 
 void Rewriter::VisitVariableProxy(VariableProxy* proxy) {
+  // nickie !!! ugly hack
+  if (proxy->is_resolved()) {
+    DCHECK_EQ(proxy->var()->mode(), TEMPORARY);
+    return;
+  }
+
   DCHECK(!proxy->is_resolved());
   if (old_scope_->RemoveUnresolved(proxy)) {
     new_scope_->AddUnresolved(proxy);

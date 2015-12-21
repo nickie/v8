@@ -4584,7 +4584,7 @@ Block* Parser::BuildParameterInitializationBlock(
       DCHECK(!parameter.is_rest);
 
       // Ensure initializer is rewritten
-      RewriteParameterInitializer(parameter.initializer, scope_);
+      // nickie !!! RewriteParameterInitializer(parameter.initializer, scope_);
 
       auto condition = factory()->NewCompareOperation(
           Token::EQ_STRICT,

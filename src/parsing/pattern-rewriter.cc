@@ -34,17 +34,25 @@ void Parser::PatternRewriter::DeclareAndInitializeVariables(
 void Parser::PatternRewriter::RewriteDestructuringAssignment(
     Parser* parser, Expression* to_rewrite, Scope* scope, bool* ok) {
   PatternRewriter rewriter;
+  int pos = to_rewrite->position();
 
   rewriter.scope_ = scope;
   rewriter.parser_ = parser;
   rewriter.context_ = ASSIGNMENT;
   rewriter.pattern_ = to_rewrite;
-  rewriter.block_ = nullptr;
+  rewriter.block_ = parser->factory()->NewBlock(nullptr, 8, false, pos);
   rewriter.descriptor_ = nullptr;
   rewriter.names_ = nullptr;
   rewriter.ok_ = ok;
 
   rewriter.RecurseIntoSubpattern(rewriter.pattern_, nullptr);
+#if 0
+  // nickie !!! `expr` below will be the rewritten expression
+  Expression* expr = to_rewrite;
+  rewriter.block_->statements()->Add(
+      parser->factory()->NewExpressionStatement(expr, pos),
+      parser->zone());
+#endif
 }
 
 
@@ -98,6 +106,7 @@ void Parser::PatternRewriter::VisitVariableProxy(VariableProxy* pattern) {
   Expression* value = current_value_;
 
   if (IsAssignmentContext()) {
+    if (block_ == nullptr) return; // nickie !!!
     // In an assignment context, simply perform the assignment
     Assignment* assignment = factory()->NewAssignment(
         Token::ASSIGN, pattern, value, pattern->position());
@@ -315,12 +324,13 @@ void Parser::PatternRewriter::VisitRewritableAssignmentExpression(
     return node->expression()->Accept(this);
   }
 
+  // nickie !!! base::OS::PrintError("RAE pattern rewriting...\n");
+
   if (node->is_rewritten()) return;
   DCHECK(IsAssignmentContext());
   Assignment* assign = node->expression()->AsAssignment();
   DCHECK_NOT_NULL(assign);
   DCHECK_EQ(Token::ASSIGN, assign->op());
-
   auto initializer = assign->value();
   auto value = initializer;
 
@@ -341,8 +351,11 @@ void Parser::PatternRewriter::VisitRewritableAssignmentExpression(
 
   PatternContext old_context = SetAssignmentContextIfNeeded(initializer);
   int pos = assign->position();
+#if 0
+  // nickie !!!
   Block* old_block = block_;
   block_ = factory()->NewBlock(nullptr, 8, false, pos);
+#endif
   Variable* temp = nullptr;
   Expression* pattern = assign->target();
   Expression* old_value = current_value_;
@@ -357,11 +370,14 @@ void Parser::PatternRewriter::VisitRewritableAssignmentExpression(
   current_value_ = old_value;
   Expression* expr = factory()->NewDoExpression(block_, temp, pos);
   node->Rewrite(expr);
+#if 0
+  // nickie !!!
   block_ = old_block;
   if (block_) {
     block_->statements()->Add(factory()->NewExpressionStatement(expr, pos),
                               zone());
   }
+#endif
   return set_context(old_context);
 }
 
@@ -508,6 +524,8 @@ void Parser::PatternRewriter::VisitAssignment(Assignment* node) {
   // <pattern> = temp === undefined ? <init> : temp;
   DCHECK_EQ(Token::ASSIGN, node->op());
 
+  // nickie !!! base::OS::PrintError("Assignment pattern rewriting...\n");
+
   auto initializer = node->value();
   auto value = initializer;
   auto temp = CreateTempVar(current_value_);
@@ -550,18 +568,31 @@ void Parser::PatternRewriter::VisitProperty(v8::internal::Property* node) {
 }
 
 
+// =============== Comma-separated argument list only ==================
+
+void Parser::PatternRewriter::VisitBinaryOperation(BinaryOperation* node) {
+  if (node->op() == Token::COMMA) {
+    node->left()->Accept(this);
+    node->right()->Accept(this);
+  }
+}
+
+
 // =============== UNREACHABLE =============================
 
 void Parser::PatternRewriter::Visit(AstNode* node) { UNREACHABLE(); }
 
-#define NOT_A_PATTERN(Node)                                        \
+#define NOT_AN_EXPRESSION(Node)                                    \
   void Parser::PatternRewriter::Visit##Node(v8::internal::Node*) { \
     UNREACHABLE();                                                 \
   }
 
-NOT_A_PATTERN(BinaryOperation)
-NOT_A_PATTERN(Block)
-NOT_A_PATTERN(BreakStatement)
+#define NOT_A_PATTERN(Node)                                        \
+  void Parser::PatternRewriter::Visit##Node(v8::internal::Node*) {}
+
+DECLARATION_NODE_LIST(NOT_AN_EXPRESSION)
+STATEMENT_NODE_LIST(NOT_AN_EXPRESSION)
+
 NOT_A_PATTERN(Call)
 NOT_A_PATTERN(CallNew)
 NOT_A_PATTERN(CallRuntime)
@@ -569,41 +600,22 @@ NOT_A_PATTERN(CaseClause)
 NOT_A_PATTERN(ClassLiteral)
 NOT_A_PATTERN(CompareOperation)
 NOT_A_PATTERN(Conditional)
-NOT_A_PATTERN(ContinueStatement)
 NOT_A_PATTERN(CountOperation)
-NOT_A_PATTERN(DebuggerStatement)
 NOT_A_PATTERN(DoExpression)
-NOT_A_PATTERN(DoWhileStatement)
-NOT_A_PATTERN(EmptyStatement)
 NOT_A_PATTERN(EmptyParentheses)
-NOT_A_PATTERN(ExportDeclaration)
-NOT_A_PATTERN(ExpressionStatement)
-NOT_A_PATTERN(ForInStatement)
-NOT_A_PATTERN(ForOfStatement)
-NOT_A_PATTERN(ForStatement)
-NOT_A_PATTERN(FunctionDeclaration)
 NOT_A_PATTERN(FunctionLiteral)
-NOT_A_PATTERN(IfStatement)
-NOT_A_PATTERN(ImportDeclaration)
 NOT_A_PATTERN(Literal)
 NOT_A_PATTERN(NativeFunctionLiteral)
 NOT_A_PATTERN(RegExpLiteral)
-NOT_A_PATTERN(ReturnStatement)
-NOT_A_PATTERN(SloppyBlockFunctionStatement)
 NOT_A_PATTERN(Spread)
 NOT_A_PATTERN(SuperPropertyReference)
 NOT_A_PATTERN(SuperCallReference)
-NOT_A_PATTERN(SwitchStatement)
 NOT_A_PATTERN(ThisFunction)
 NOT_A_PATTERN(Throw)
-NOT_A_PATTERN(TryCatchStatement)
-NOT_A_PATTERN(TryFinallyStatement)
 NOT_A_PATTERN(UnaryOperation)
-NOT_A_PATTERN(VariableDeclaration)
-NOT_A_PATTERN(WhileStatement)
-NOT_A_PATTERN(WithStatement)
 NOT_A_PATTERN(Yield)
 
+#undef NOT_AN_EXPRESSION
 #undef NOT_A_PATTERN
 }  // namespace internal
 }  // namespace v8
