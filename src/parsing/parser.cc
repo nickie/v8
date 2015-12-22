@@ -4906,6 +4906,7 @@ ClassLiteral* Parser::ParseClassLiteral(const AstRawString* name,
     ExpressionClassifier classifier;
     extends = ParseLeftHandSideExpression(&classifier, CHECK_OK);
     ValidateExpression(&classifier, CHECK_OK);
+    extends = ParserTraits::RewriteExpression(extends);
   } else {
     block_scope->set_start_position(scanner()->location().end_pos);
   }
@@ -4932,6 +4933,7 @@ ClassLiteral* Parser::ParseClassLiteral(const AstRawString* name,
         &checker, in_class, has_extends, is_static, &is_computed_name,
         &has_seen_constructor, &classifier, &name, CHECK_OK);
     ValidateExpression(&classifier, CHECK_OK);
+    property = ParserTraits::RewriteObjectLiteralProperty(property);
 
     if (has_seen_constructor && constructor == NULL) {
       constructor = GetPropertyValue(property)->AsFunctionLiteral();
@@ -6497,6 +6499,34 @@ void Parser::RaiseLanguageMode(LanguageMode mode) {
 
 void ParserTraits::RewriteDestructuringAssignments() {
   parser_->RewriteDestructuringAssignments();
+}
+
+
+Expression* ParserTraits::RewriteExpression(Expression* expr) {
+  return parser_->RewriteExpression(expr);
+}
+
+
+ObjectLiteralProperty* ParserTraits::RewriteObjectLiteralProperty(
+    ObjectLiteralProperty* property) {
+  return parser_->RewriteObjectLiteralProperty(property);
+}
+
+
+Expression* Parser::RewriteExpression(Expression* expr) {
+  return expr; // nickie !!! do nothing
+}
+
+
+ObjectLiteralProperty* Parser::RewriteObjectLiteralProperty(
+    ObjectLiteralProperty* property) {
+  if (property != nullptr) {
+    Expression* key = RewriteExpression(property->key());
+    property->set_key(key);
+    Expression* value = RewriteExpression(property->value());
+    property->set_value(value);
+  }
+  return property;
 }
 
 

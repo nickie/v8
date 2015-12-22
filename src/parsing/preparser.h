@@ -926,6 +926,14 @@ class PreParserTraits {
   void SetFunctionNameFromPropertyName(PreParserExpression,
                                        PreParserIdentifier) {}
 
+  inline PreParserExpression RewriteExpression(PreParserExpression expr) {
+    return expr;
+  }
+  inline PreParserExpression RewriteObjectLiteralProperty(
+      PreParserExpression property) {
+    return property;
+  }
+
  private:
   PreParser* pre_parser_;
 };

@@ -909,6 +909,11 @@ class ParserTraits {
   void SetFunctionNameFromPropertyName(ObjectLiteralProperty* property,
                                        const AstRawString* name);
 
+  // Rewrite expressions
+  V8_INLINE Expression* RewriteExpression(Expression* expr);
+  V8_INLINE ObjectLiteralProperty* RewriteObjectLiteralProperty(
+      ObjectLiteralProperty* property);
+
  private:
   Parser* parser_;
 };
@@ -1260,6 +1265,10 @@ class Parser : public ParserBase<ParserTraits> {
   void RaiseLanguageMode(LanguageMode mode);
 
   V8_INLINE void RewriteDestructuringAssignments();
+
+  V8_INLINE Expression* RewriteExpression(Expression* expr);
+  V8_INLINE ObjectLiteralProperty* RewriteObjectLiteralProperty(
+      ObjectLiteralProperty* property);
 
   friend class InitializerRewriter;
   void RewriteParameterInitializer(Expression* expr, Scope* scope);
