@@ -1643,6 +1643,9 @@ class RegExpLiteral final : public MaterializedLiteral {
 };
 
 
+class Parser; // nickie !!! see about this
+
+
 // An array literal has a literals object that is used
 // for minimizing the work when constructing it at runtime.
 class ArrayLiteral final : public MaterializedLiteral {
@@ -1681,6 +1684,9 @@ class ArrayLiteral final : public MaterializedLiteral {
     }
     return flags;
   }
+
+  // Rewrite spreads to a do expression.
+  Expression* RewriteSpreads(Parser* parser);
 
   enum Flags {
     kNoFlags = 0,
@@ -3385,8 +3391,9 @@ class AstVisitor BASE_EMBEDDED {
  public:                                                    \
   AstNode* Rewrite(AstNode* node) {                         \
     DCHECK_NULL(replacement_);                              \
+    DCHECK_NOT_NULL(node);                                  \
     Visit(node);                                            \
-    if (HasStackOverflow()) return nullptr;                 \
+    if (HasStackOverflow()) return node;                    \
     if (replacement_ == nullptr) return node;               \
     AstNode* result = replacement_;                         \
     replacement_ = nullptr;                                 \

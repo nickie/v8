@@ -60,7 +60,15 @@ void Rewriter::VisitClassLiteral(ClassLiteral* class_literal) {
 
 
 void Rewriter::VisitVariableProxy(VariableProxy* proxy) {
+#if 0
   DCHECK(!proxy->is_resolved());
+#else
+  // nickie !!! this is for temporaries, we'll see about this
+  if (proxy->is_resolved()) {
+    DCHECK_EQ(proxy->var()->mode(), TEMPORARY);
+    return;
+  }
+#endif
   if (old_scope_->RemoveUnresolved(proxy)) {
     new_scope_->AddUnresolved(proxy);
   }

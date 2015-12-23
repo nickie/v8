@@ -7,6 +7,7 @@
 #include "src/api.h"
 #include "src/ast/ast.h"
 #include "src/ast/ast-expression-visitor.h"
+#include "src/ast/ast-expression-rewriter.h"
 #include "src/ast/ast-literal-reindexer.h"
 #include "src/ast/scopeinfo.h"
 #include "src/bailout-reason.h"
@@ -6513,8 +6514,45 @@ ObjectLiteralProperty* ParserTraits::RewriteObjectLiteralProperty(
 }
 
 
+class SpreadRewriter : public AstExpressionRewriter {
+ public:
+  SpreadRewriter(uintptr_t stack_limit, Parser* parser) :
+      AstExpressionRewriter(stack_limit),
+      parser_(parser) {}
+  ~SpreadRewriter() override {}
+
+ private:
+  bool RewriteExpression(Expression* expr) override {
+    // Rewrite only what could have been a pattern.
+    // The actual work is in array literals.
+    if (expr->IsArrayLiteral()) {
+      ArrayLiteral* lit = expr->AsArrayLiteral();
+      VisitExpressions(lit->values());
+      replacement_ = lit->RewriteSpreads(parser_);
+      return false;
+    }
+    if (expr->IsObjectLiteral()) {
+      return true;
+    }
+    if (expr->IsBinaryOperation() &&
+        expr->AsBinaryOperation()->op() == Token::COMMA) {
+      return true;
+    }
+    // Everything else does not need rewriting.
+    return false;
+  }
+
+  Parser* parser_;
+};
+
+
 Expression* Parser::RewriteExpression(Expression* expr) {
-  return expr; // nickie !!! do nothing
+  SpreadRewriter rewriter(stack_limit_, this);
+  AstNode* node = rewriter.Rewrite(expr);
+  DCHECK_NOT_NULL(node);
+  Expression* result = reinterpret_cast<Expression*>(node);
+  DCHECK_NOT_NULL(result);
+  return result;
 }
 
 

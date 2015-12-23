@@ -1152,10 +1152,12 @@ class Parser : public ParserBase<ParserTraits> {
   TryStatement* ParseTryStatement(bool* ok);
   DebuggerStatement* ParseDebuggerStatement(bool* ok);
 
+ public: // nickie !!! see about this
   // !%_IsJSReceiver(result = iterator.next()) &&
   //     %ThrowIteratorResultNotAnObject(result)
   Expression* BuildIteratorNextResult(Expression* iterator, Variable* result,
                                       int pos);
+ private: // nickie !!! end
 
 
   // Initialize the components of a for-in / for-of statement.
