@@ -567,11 +567,11 @@ void ArrayLiteral::AssignFeedbackVectorSlots(Isolate* isolate,
 Expression* ArrayLiteral::RewriteSpreads(Parser* parser) {
   if (first_spread_index_ < 0) return nullptr;
   // nickie !!! positions are awful
-  Variable* result_var = parser->scope_->NewTemporary(
+  Variable* result = parser->scope_->NewTemporary(
       parser->ast_value_factory()->dot_result_string());
-  VariableProxy* result = parser->factory()->NewVariableProxy(result_var);
   Expression* init_result = parser->factory()->NewAssignment(
-      Token::INIT, result, this, RelocInfo::kNoPosition);
+      Token::INIT, parser->factory()->NewVariableProxy(result), this,
+      RelocInfo::kNoPosition);
   Block* do_block =
       parser->factory()->NewBlock(nullptr, 16, false, RelocInfo::kNoPosition);
   do_block->statements()->Add(
@@ -583,7 +583,8 @@ Expression* ArrayLiteral::RewriteSpreads(Parser* parser) {
     if (spread == nullptr) {
       ZoneList<Expression*>* append_element_args =
           parser->NewExpressionList(2, parser->zone());
-      append_element_args->Add(result, parser->zone());
+      append_element_args->Add(parser->factory()->NewVariableProxy(result),
+                               parser->zone());
       append_element_args->Add(values_->at(i), parser->zone());
       do_block->statements()->Add(
           parser->factory()->NewExpressionStatement(
@@ -594,10 +595,8 @@ Expression* ArrayLiteral::RewriteSpreads(Parser* parser) {
           parser->zone());
     }
     else {
-      Variable* each_var = parser->scope_->NewTemporary(
+      Variable* each = parser->scope_->NewTemporary(
           parser->ast_value_factory()->dot_for_string());
-      VariableProxy* each =
-          parser->factory()->NewVariableProxy(each_var);
       Expression* subject = spread->expression();
       Variable* iterator = parser->scope_->NewTemporary(
           parser->ast_value_factory()->dot_iterator_string());
@@ -638,15 +637,18 @@ Expression* ArrayLiteral::RewriteSpreads(Parser* parser) {
         Expression* element_value = parser->factory()->NewProperty(
             element_proxy, value_literal, RelocInfo::kNoPosition);
         assign_each = parser->factory()->NewAssignment(
-            Token::ASSIGN, each, element_value, RelocInfo::kNoPosition);
+            Token::ASSIGN, parser->factory()->NewVariableProxy(each),
+            element_value, RelocInfo::kNoPosition);
       }
       // append each to the result
       Statement* append_body;
       {
         ZoneList<Expression*>* append_element_args =
             parser->NewExpressionList(2, parser->zone());
-        append_element_args->Add(result, parser->zone());
-        append_element_args->Add(each, parser->zone());
+        append_element_args->Add(parser->factory()->NewVariableProxy(result),
+                                 parser->zone());
+        append_element_args->Add(parser->factory()->NewVariableProxy(each),
+                                 parser->zone());
         append_body = parser->factory()->NewExpressionStatement(
             parser->factory()->NewCallRuntime(Runtime::kAppendElement,
                                               append_element_args,
@@ -657,14 +659,15 @@ Expression* ArrayLiteral::RewriteSpreads(Parser* parser) {
           parser->factory()->NewForEachStatement(
               ForEachStatement::ITERATE, nullptr, spread->position());
       ForOfStatement* for_of = loop->AsForOfStatement();
-      for_of->Initialize(each, subject, append_body, assign_iterator,
+      for_of->Initialize(parser->factory()->NewVariableProxy(each),
+                         subject, append_body, assign_iterator,
                          next_element, element_done, assign_each);
       do_block->statements()->Add(for_of, parser->zone());
     }
   }
   values_->Rewind(first_spread_index_);
   first_spread_index_ = -1;
-  return parser->factory()->NewDoExpression(do_block, result_var, position());
+  return parser->factory()->NewDoExpression(do_block, result, position());
 }
 
 
