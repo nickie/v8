@@ -924,6 +924,11 @@ class ForOfStatement final : public ForEachStatement {
     return assign_each_;
   }
 
+  void set_assign_iterator(Expression* e) { assign_iterator_ = e; }
+  void set_next_result(Expression* e) { next_result_ = e; }
+  void set_result_done(Expression* e) { result_done_ = e; }
+  void set_assign_each(Expression* e) { assign_each_ = e; }
+
   BailoutId ContinueId() const override { return EntryId(); }
   BailoutId StackCheckId() const override { return BackEdgeId(); }
 

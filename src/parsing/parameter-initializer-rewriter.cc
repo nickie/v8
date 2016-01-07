@@ -60,16 +60,17 @@ void Rewriter::VisitClassLiteral(ClassLiteral* class_literal) {
 
 
 void Rewriter::VisitVariableProxy(VariableProxy* proxy) {
-#if 0
-  DCHECK(!proxy->is_resolved());
-#else
-  // nickie !!! this is for temporaries, we'll see about this
+  // TODO(nikolaos): This is the point that I'm not sure whether I have
+  // done the right thing (changing the scope of temporary variables).
   if (proxy->is_resolved()) {
-    DCHECK_EQ(proxy->var()->mode(), TEMPORARY);
-    return;
+    Variable* var = proxy->var();
+    DCHECK_EQ(var->mode(), TEMPORARY);
+    if (old_scope_->RemoveTemporary(var)) {
+      var->set_scope(new_scope_);
+      new_scope_->AddTemporary(var);
+    }
   }
-#endif
-  if (old_scope_->RemoveUnresolved(proxy)) {
+  else if (old_scope_->RemoveUnresolved(proxy)) {
     new_scope_->AddUnresolved(proxy);
   }
 }
