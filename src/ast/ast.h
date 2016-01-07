@@ -1648,9 +1648,6 @@ class RegExpLiteral final : public MaterializedLiteral {
 };
 
 
-class Parser; // nickie !!! see about this
-
-
 // An array literal has a literals object that is used
 // for minimizing the work when constructing it at runtime.
 class ArrayLiteral final : public MaterializedLiteral {
@@ -1690,8 +1687,21 @@ class ArrayLiteral final : public MaterializedLiteral {
     return flags;
   }
 
-  // Rewrite spreads to a do expression.
-  Expression* RewriteSpreads(Parser* parser);
+  // Provide a mechanism for iterating through values to rewrite spreads.
+  ZoneList<Expression*>::iterator FirstSpread() const {
+    return (first_spread_index_ >= 0)
+        ? values_->begin() + first_spread_index_
+        : values_->end();
+  }
+  ZoneList<Expression*>::iterator EndValue() const {
+    return values_->end();
+  }
+
+  // Rewind an array literal omitting everything from the first spread on.
+  void RewindSpreads() {
+    values_->Rewind(first_spread_index_);
+    first_spread_index_ = -1;
+  }
 
   enum Flags {
     kNoFlags = 0,

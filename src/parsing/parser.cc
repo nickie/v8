@@ -6528,7 +6528,7 @@ class SpreadRewriter : public AstExpressionRewriter {
     if (expr->IsArrayLiteral()) {
       ArrayLiteral* lit = expr->AsArrayLiteral();
       VisitExpressions(lit->values());
-      replacement_ = lit->RewriteSpreads(parser_);
+      replacement_ = parser_->RewriteSpreads(lit);
       return false;
     }
     if (expr->IsObjectLiteral()) {
@@ -6585,6 +6585,105 @@ void Parser::RewriteDestructuringAssignments() {
       PatternRewriter::RewriteDestructuringAssignment(this, to_rewrite, scope);
     }
   }
+}
+
+
+Expression* Parser::RewriteSpreads(ArrayLiteral* lit) {
+  ZoneList<Expression*>::iterator s = lit->FirstSpread();
+  if (s == lit->EndValue()) return nullptr;
+  // TODO(nikolaos): Check and fix the positions for the generated AST.
+  Variable* result =
+      scope_->NewTemporary(ast_value_factory()->dot_result_string());
+  Expression* init_result = factory()->NewAssignment(
+      Token::INIT, factory()->NewVariableProxy(result), lit,
+      RelocInfo::kNoPosition);
+  Block* do_block =
+      factory()->NewBlock(nullptr, 16, false, RelocInfo::kNoPosition);
+  do_block->statements()->Add(
+      factory()->NewExpressionStatement(init_result, RelocInfo::kNoPosition),
+      zone());
+  while (s != lit->EndValue()) {
+    Expression* value = *s++;
+    Spread* spread = value->AsSpread();
+    if (spread == nullptr) {
+      ZoneList<Expression*>* append_element_args = NewExpressionList(2, zone());
+      append_element_args->Add(factory()->NewVariableProxy(result), zone());
+      append_element_args->Add(value, zone());
+      do_block->statements()->Add(
+          factory()->NewExpressionStatement(
+              factory()->NewCallRuntime(Runtime::kAppendElement,
+                                        append_element_args,
+                                        RelocInfo::kNoPosition),
+              RelocInfo::kNoPosition),
+          zone());
+    }
+    else {
+      Variable* each =
+          scope_->NewTemporary(ast_value_factory()->dot_for_string());
+      Expression* subject = spread->expression();
+      Variable* iterator =
+          scope_->NewTemporary(ast_value_factory()->dot_iterator_string());
+      Variable* element =
+          scope_->NewTemporary(ast_value_factory()->dot_result_string());
+      // iterator = subject[Symbol.iterator]()
+      Expression* assign_iterator = factory()->NewAssignment(
+          Token::ASSIGN, factory()->NewVariableProxy(iterator),
+          GetIterator(subject, factory(), spread->position()),
+          spread->position());
+      // !%_IsJSReceiver(element = iterator.next()) &&
+      //     %ThrowIteratorResultNotAnObject(element)
+      Expression* next_element;
+      {
+        // element = iterator.next()
+        Expression* iterator_proxy = factory()->NewVariableProxy(iterator);
+        next_element = BuildIteratorNextResult(iterator_proxy, element,
+                                               spread->position());
+      }
+      // element.done
+      Expression* element_done;
+      {
+        Expression* done_literal = factory()->NewStringLiteral(
+            ast_value_factory()->done_string(), RelocInfo::kNoPosition);
+        Expression* element_proxy = factory()->NewVariableProxy(element);
+        element_done = factory()->NewProperty(
+            element_proxy, done_literal, RelocInfo::kNoPosition);
+      }
+      // each = element.value
+      Expression* assign_each;
+      {
+        Expression* value_literal = factory()->NewStringLiteral(
+            ast_value_factory()->value_string(), RelocInfo::kNoPosition);
+        Expression* element_proxy = factory()->NewVariableProxy(element);
+        Expression* element_value = factory()->NewProperty(
+            element_proxy, value_literal, RelocInfo::kNoPosition);
+        assign_each = factory()->NewAssignment(
+            Token::ASSIGN, factory()->NewVariableProxy(each),
+            element_value, RelocInfo::kNoPosition);
+      }
+      // append each to the result
+      Statement* append_body;
+      {
+        ZoneList<Expression*>* append_element_args =
+            NewExpressionList(2, zone());
+        append_element_args->Add(factory()->NewVariableProxy(result), zone());
+        append_element_args->Add(factory()->NewVariableProxy(each), zone());
+        append_body = factory()->NewExpressionStatement(
+            factory()->NewCallRuntime(Runtime::kAppendElement,
+                                      append_element_args,
+                                      RelocInfo::kNoPosition),
+            RelocInfo::kNoPosition);
+      }
+      ForEachStatement* loop = factory()->NewForEachStatement(
+          ForEachStatement::ITERATE, nullptr, spread->position());
+      ForOfStatement* for_of = loop->AsForOfStatement();
+      for_of->Initialize(factory()->NewVariableProxy(each),
+                         subject, append_body, assign_iterator,
+                         next_element, element_done, assign_each);
+      do_block->statements()->Add(for_of, zone());
+    }
+  }
+  lit->RewindSpreads();
+  return factory()->NewDoExpression(do_block, result, lit->position());
 }
 
 

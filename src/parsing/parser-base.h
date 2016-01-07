@@ -138,8 +138,6 @@ class ParserBase : public Traits {
 
   uintptr_t stack_limit() const { return stack_limit_; }
 
-  friend class ArrayLiteral; // nickie !!! we'll see about this
-
  protected:
   enum AllowRestrictedIdentifiers {
     kAllowRestrictedIdentifiers,

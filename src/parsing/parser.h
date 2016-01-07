@@ -1152,12 +1152,10 @@ class Parser : public ParserBase<ParserTraits> {
   TryStatement* ParseTryStatement(bool* ok);
   DebuggerStatement* ParseDebuggerStatement(bool* ok);
 
- public: // nickie !!! see about this
   // !%_IsJSReceiver(result = iterator.next()) &&
   //     %ThrowIteratorResultNotAnObject(result)
   Expression* BuildIteratorNextResult(Expression* iterator, Variable* result,
                                       int pos);
- private: // nickie !!! end
 
 
   // Initialize the components of a for-in / for-of statement.
@@ -1267,6 +1265,9 @@ class Parser : public ParserBase<ParserTraits> {
   void RaiseLanguageMode(LanguageMode mode);
 
   V8_INLINE void RewriteDestructuringAssignments();
+
+  friend class SpreadRewriter;
+  V8_INLINE Expression* RewriteSpreads(ArrayLiteral* lit);
 
   V8_INLINE Expression* RewriteExpression(Expression* expr);
   V8_INLINE ObjectLiteralProperty* RewriteObjectLiteralProperty(
