@@ -173,10 +173,16 @@ void AstExpressionRewriter::VisitForInStatement(ForInStatement* node) {
 
 void AstExpressionRewriter::VisitForOfStatement(ForOfStatement* node) {
   AST_REWRITE(Expression, node->each(), node->set_each(replacement));
+  AST_REWRITE(Expression, node->assign_iterator(),
+              node->set_assign_iterator(replacement));
+  AST_REWRITE(Expression, node->next_result(),
+              node->set_next_result(replacement));
+  AST_REWRITE(Expression, node->result_done(),
+              node->set_result_done(replacement));
+  AST_REWRITE(Expression, node->assign_each(),
+              node->set_assign_each(replacement));
   AST_REWRITE(Expression, node->subject(), node->set_subject(replacement));
   AST_REWRITE(Statement, node->body(), node->set_body(replacement));
-  // Not visiting `assign_iterator_`, `next_result_`, `result_done_`
-  // and `assign_each_`.
 }
 
 
