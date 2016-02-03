@@ -28,7 +28,7 @@ class ExpressionClassifier {
     const char* arg;
   };
 
-  enum TargetProduction {
+  enum TargetProduction : unsigned {
     ExpressionProduction = 1 << 0,
     FormalParameterInitializerProduction = 1 << 1,
     BindingPatternProduction = 1 << 2,
@@ -53,7 +53,9 @@ class ExpressionClassifier {
          ArrowFormalParametersProduction | CoverInitializedNameProduction)
   };
 
-  enum FunctionProperties { NonSimpleParameter = 1 << 0 };
+  enum FunctionProperties : unsigned {
+    NonSimpleParameter = 1 << 0
+  };
 
   ExpressionClassifier()
       : invalid_productions_(0),
@@ -335,8 +337,8 @@ class ExpressionClassifier {
   }
 
  private:
-  unsigned invalid_productions_;
-  unsigned function_properties_;
+  unsigned invalid_productions_ : 14;
+  unsigned function_properties_ : 2;
   Error expression_error_;
   Error formal_parameter_initializer_error_;
   Error binding_pattern_error_;
