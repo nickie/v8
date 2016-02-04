@@ -36,15 +36,16 @@ class ExpressionClassifier {
   };
 
   struct Error {
-    inline Error()
+    V8_INLINE Error()
         : location(Scanner::Location::invalid()),
           message(MessageTemplate::kNone),
           kind(kUnusedError),
           type(kSyntaxError),
           arg(nullptr) {}
-    explicit inline Error(Scanner::Location loc, MessageTemplate::Template msg,
-                          ErrorKind k, const char* a = nullptr,
-                          ParseErrorType t = kSyntaxError)
+    V8_INLINE explicit Error(Scanner::Location loc,
+                             MessageTemplate::Template msg,
+                             ErrorKind k, const char* a = nullptr,
+                             ParseErrorType t = kSyntaxError)
         : location(loc), message(msg), kind(k), type(t), arg(a) {}
 
     Scanner::Location location;
@@ -88,102 +89,109 @@ class ExpressionClassifier {
         reported_errors_(3),  // statistics: 3 covers 90-99% of cases
         duplicate_finder_(duplicate_finder) {}
 
-  bool is_valid(unsigned productions) const {
+  V8_INLINE bool is_valid(unsigned productions) const {
     return (invalid_productions_ & productions) == 0;
   }
 
-  DuplicateFinder* duplicate_finder() const { return duplicate_finder_; }
+  V8_INLINE DuplicateFinder* duplicate_finder() const {
+    return duplicate_finder_;
+  }
 
-  bool is_valid_expression() const { return is_valid(ExpressionProduction); }
+  V8_INLINE bool is_valid_expression() const {
+    return is_valid(ExpressionProduction);
+  }
 
-  bool is_valid_formal_parameter_initializer() const {
+  V8_INLINE bool is_valid_formal_parameter_initializer() const {
     return is_valid(FormalParameterInitializerProduction);
   }
 
-  bool is_valid_binding_pattern() const {
+  V8_INLINE bool is_valid_binding_pattern() const {
     return is_valid(BindingPatternProduction);
   }
 
-  bool is_valid_assignment_pattern() const {
+  V8_INLINE bool is_valid_assignment_pattern() const {
     return is_valid(AssignmentPatternProduction);
   }
 
-  bool is_valid_arrow_formal_parameters() const {
+  V8_INLINE bool is_valid_arrow_formal_parameters() const {
     return is_valid(ArrowFormalParametersProduction);
   }
 
-  bool is_valid_formal_parameter_list_without_duplicates() const {
+  V8_INLINE bool is_valid_formal_parameter_list_without_duplicates() const {
     return is_valid(DistinctFormalParametersProduction);
   }
 
   // Note: callers should also check
   // is_valid_formal_parameter_list_without_duplicates().
-  bool is_valid_strict_mode_formal_parameters() const {
+  V8_INLINE bool is_valid_strict_mode_formal_parameters() const {
     return is_valid(StrictModeFormalParametersProduction);
   }
 
   // Note: callers should also check is_valid_strict_mode_formal_parameters()
   // and is_valid_formal_parameter_list_without_duplicates().
-  bool is_valid_strong_mode_formal_parameters() const {
+  V8_INLINE bool is_valid_strong_mode_formal_parameters() const {
     return is_valid(StrongModeFormalParametersProduction);
   }
 
-  bool is_valid_let_pattern() const { return is_valid(LetPatternProduction); }
+  V8_INLINE bool is_valid_let_pattern() const {
+    return is_valid(LetPatternProduction);
+  }
 
-  const Error& expression_error() const {
+  V8_INLINE const Error& expression_error() const {
     return reported_error(kExpressionProduction);
   }
 
-  const Error& formal_parameter_initializer_error() const {
+  V8_INLINE const Error& formal_parameter_initializer_error() const {
     return reported_error(kFormalParameterInitializerProduction);
   }
 
-  const Error& binding_pattern_error() const {
+  V8_INLINE const Error& binding_pattern_error() const {
     return reported_error(kBindingPatternProduction);
   }
 
-  const Error& assignment_pattern_error() const {
+  V8_INLINE const Error& assignment_pattern_error() const {
     return reported_error(kAssignmentPatternProduction);
   }
 
-  const Error& arrow_formal_parameters_error() const {
+  V8_INLINE const Error& arrow_formal_parameters_error() const {
     return reported_error(kArrowFormalParametersProduction);
   }
 
-  const Error& duplicate_formal_parameter_error() const {
+  V8_INLINE const Error& duplicate_formal_parameter_error() const {
     return reported_error(kDistinctFormalParametersProduction);
   }
 
-  const Error& strict_mode_formal_parameter_error() const {
+  V8_INLINE const Error& strict_mode_formal_parameter_error() const {
     return reported_error(kStrictModeFormalParametersProduction);
   }
 
-  const Error& strong_mode_formal_parameter_error() const {
+  V8_INLINE const Error& strong_mode_formal_parameter_error() const {
     return reported_error(kStrongModeFormalParametersProduction);
   }
 
-  const Error& let_pattern_error() const {
+  V8_INLINE const Error& let_pattern_error() const {
     return reported_error(kLetPatternProduction);
- }
+  }
 
-  bool has_cover_initialized_name() const {
+  V8_INLINE bool has_cover_initialized_name() const {
     return !is_valid(CoverInitializedNameProduction);
   }
-  const Error& cover_initialized_name_error() const {
+
+  V8_INLINE const Error& cover_initialized_name_error() const {
     return reported_error(kCoverInitializedNameProduction);
   }
 
-  bool is_simple_parameter_list() const {
+  V8_INLINE bool is_simple_parameter_list() const {
     return !(function_properties_ & NonSimpleParameter);
   }
 
-  void RecordNonSimpleParameter() {
+  V8_INLINE void RecordNonSimpleParameter() {
     function_properties_ |= NonSimpleParameter;
   }
 
-  void RecordExpressionError(const Scanner::Location& loc,
-                             MessageTemplate::Template message,
-                             const char* arg = nullptr) {
+  V8_INLINE void RecordExpressionError(const Scanner::Location& loc,
+                                       MessageTemplate::Template message,
+                                       const char* arg = nullptr) {
     if (!is_valid_expression()) return;
     invalid_productions_ |= ExpressionProduction;
     reported_errors_.Add(Error(loc, message, kExpressionProduction, arg));
@@ -337,7 +345,7 @@ class ExpressionClassifier {
   }
 
  private:
-  Error& reported_error(ErrorKind kind) const {
+  V8_INLINE Error& reported_error(ErrorKind kind) const {
     for (List<Error>::iterator i = reported_errors_.begin();
          i != reported_errors_.end(); i++) {
       if (i->kind == kind)
