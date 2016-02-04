@@ -13,32 +13,51 @@ namespace v8 {
 namespace internal {
 
 
+#define ERROR_CODES(T)                          \
+  T(ExpressionProduction, 0)                    \
+  T(FormalParameterInitializerProduction, 1)    \
+  T(BindingPatternProduction, 2)                \
+  T(AssignmentPatternProduction, 3)             \
+  T(DistinctFormalParametersProduction, 4)      \
+  T(StrictModeFormalParametersProduction, 5)    \
+  T(StrongModeFormalParametersProduction, 6)    \
+  T(ArrowFormalParametersProduction, 7)         \
+  T(LetPatternProduction, 8)                    \
+  T(CoverInitializedNameProduction, 9)
+
+
 class ExpressionClassifier {
  public:
+  enum ErrorKind : unsigned {
+#define DEFINE_ERROR_KIND(NAME, CODE) k##NAME = CODE,
+    ERROR_CODES(DEFINE_ERROR_KIND)
+#undef DEFINE_ERROR_KIND
+    kUnusedError = 15  // Larger than error codes; should fit in 4 bits
+  };
+
   struct Error {
-    Error()
+    inline Error()
         : location(Scanner::Location::invalid()),
           message(MessageTemplate::kNone),
+          kind(kUnusedError),
           type(kSyntaxError),
           arg(nullptr) {}
+    explicit inline Error(Scanner::Location loc, MessageTemplate::Template msg,
+                          ErrorKind k, const char* a = nullptr,
+                          ParseErrorType t = kSyntaxError)
+        : location(loc), message(msg), kind(k), type(t), arg(a) {}
 
     Scanner::Location location;
-    MessageTemplate::Template message : 30;
+    MessageTemplate::Template message : 26;
+    ErrorKind kind : 4;
     ParseErrorType type : 2;
     const char* arg;
   };
 
   enum TargetProduction : unsigned {
-    ExpressionProduction = 1 << 0,
-    FormalParameterInitializerProduction = 1 << 1,
-    BindingPatternProduction = 1 << 2,
-    AssignmentPatternProduction = 1 << 3,
-    DistinctFormalParametersProduction = 1 << 4,
-    StrictModeFormalParametersProduction = 1 << 5,
-    StrongModeFormalParametersProduction = 1 << 6,
-    ArrowFormalParametersProduction = 1 << 7,
-    LetPatternProduction = 1 << 8,
-    CoverInitializedNameProduction = 1 << 9,
+#define DEFINE_PRODUCTION(NAME, CODE) NAME = 1 << CODE,
+    ERROR_CODES(DEFINE_PRODUCTION)
+#undef DEFINE_PRODUCTION
 
     ExpressionProductions =
         (ExpressionProduction | FormalParameterInitializerProduction),
@@ -60,11 +79,13 @@ class ExpressionClassifier {
   ExpressionClassifier()
       : invalid_productions_(0),
         function_properties_(0),
+        reported_errors_(3),  // statistics: 3 covers 90-99% of cases
         duplicate_finder_(nullptr) {}
 
   explicit ExpressionClassifier(DuplicateFinder* duplicate_finder)
       : invalid_productions_(0),
         function_properties_(0),
+        reported_errors_(3),  // statistics: 3 covers 90-99% of cases
         duplicate_finder_(duplicate_finder) {}
 
   bool is_valid(unsigned productions) const {
@@ -109,41 +130,47 @@ class ExpressionClassifier {
 
   bool is_valid_let_pattern() const { return is_valid(LetPatternProduction); }
 
-  const Error& expression_error() const { return expression_error_; }
-
-  const Error& formal_parameter_initializer_error() const {
-    return formal_parameter_initializer_error_;
+  const Error& expression_error() const {
+    return reported_error(kExpressionProduction);
   }
 
-  const Error& binding_pattern_error() const { return binding_pattern_error_; }
+  const Error& formal_parameter_initializer_error() const {
+    return reported_error(kFormalParameterInitializerProduction);
+  }
+
+  const Error& binding_pattern_error() const {
+    return reported_error(kBindingPatternProduction);
+  }
 
   const Error& assignment_pattern_error() const {
-    return assignment_pattern_error_;
+    return reported_error(kAssignmentPatternProduction);
   }
 
   const Error& arrow_formal_parameters_error() const {
-    return arrow_formal_parameters_error_;
+    return reported_error(kArrowFormalParametersProduction);
   }
 
   const Error& duplicate_formal_parameter_error() const {
-    return duplicate_formal_parameter_error_;
+    return reported_error(kDistinctFormalParametersProduction);
   }
 
   const Error& strict_mode_formal_parameter_error() const {
-    return strict_mode_formal_parameter_error_;
+    return reported_error(kStrictModeFormalParametersProduction);
   }
 
   const Error& strong_mode_formal_parameter_error() const {
-    return strong_mode_formal_parameter_error_;
+    return reported_error(kStrongModeFormalParametersProduction);
   }
 
-  const Error& let_pattern_error() const { return let_pattern_error_; }
+  const Error& let_pattern_error() const {
+    return reported_error(kLetPatternProduction);
+ }
 
   bool has_cover_initialized_name() const {
     return !is_valid(CoverInitializedNameProduction);
   }
   const Error& cover_initialized_name_error() const {
-    return cover_initialized_name_error_;
+    return reported_error(kCoverInitializedNameProduction);
   }
 
   bool is_simple_parameter_list() const {
@@ -159,9 +186,7 @@ class ExpressionClassifier {
                              const char* arg = nullptr) {
     if (!is_valid_expression()) return;
     invalid_productions_ |= ExpressionProduction;
-    expression_error_.location = loc;
-    expression_error_.message = message;
-    expression_error_.arg = arg;
+    reported_errors_.Add(Error(loc, message, kExpressionProduction, arg));
   }
 
   void RecordExpressionError(const Scanner::Location& loc,
@@ -169,10 +194,8 @@ class ExpressionClassifier {
                              ParseErrorType type, const char* arg = nullptr) {
     if (!is_valid_expression()) return;
     invalid_productions_ |= ExpressionProduction;
-    expression_error_.location = loc;
-    expression_error_.message = message;
-    expression_error_.arg = arg;
-    expression_error_.type = type;
+    reported_errors_.Add(
+        Error(loc, message, kExpressionProduction, arg, type));
   }
 
   void RecordFormalParameterInitializerError(const Scanner::Location& loc,
@@ -180,9 +203,8 @@ class ExpressionClassifier {
                                              const char* arg = nullptr) {
     if (!is_valid_formal_parameter_initializer()) return;
     invalid_productions_ |= FormalParameterInitializerProduction;
-    formal_parameter_initializer_error_.location = loc;
-    formal_parameter_initializer_error_.message = message;
-    formal_parameter_initializer_error_.arg = arg;
+    reported_errors_.Add(
+        Error(loc, message, kFormalParameterInitializerProduction, arg));
   }
 
   void RecordBindingPatternError(const Scanner::Location& loc,
@@ -190,9 +212,7 @@ class ExpressionClassifier {
                                  const char* arg = nullptr) {
     if (!is_valid_binding_pattern()) return;
     invalid_productions_ |= BindingPatternProduction;
-    binding_pattern_error_.location = loc;
-    binding_pattern_error_.message = message;
-    binding_pattern_error_.arg = arg;
+    reported_errors_.Add(Error(loc, message, kBindingPatternProduction, arg));
   }
 
   void RecordAssignmentPatternError(const Scanner::Location& loc,
@@ -200,9 +220,8 @@ class ExpressionClassifier {
                                     const char* arg = nullptr) {
     if (!is_valid_assignment_pattern()) return;
     invalid_productions_ |= AssignmentPatternProduction;
-    assignment_pattern_error_.location = loc;
-    assignment_pattern_error_.message = message;
-    assignment_pattern_error_.arg = arg;
+    reported_errors_.Add(
+        Error(loc, message, kAssignmentPatternProduction, arg));
   }
 
   void RecordPatternError(const Scanner::Location& loc,
@@ -217,17 +236,15 @@ class ExpressionClassifier {
                                         const char* arg = nullptr) {
     if (!is_valid_arrow_formal_parameters()) return;
     invalid_productions_ |= ArrowFormalParametersProduction;
-    arrow_formal_parameters_error_.location = loc;
-    arrow_formal_parameters_error_.message = message;
-    arrow_formal_parameters_error_.arg = arg;
+    reported_errors_.Add(
+        Error(loc, message, kArrowFormalParametersProduction, arg));
   }
 
   void RecordDuplicateFormalParameterError(const Scanner::Location& loc) {
     if (!is_valid_formal_parameter_list_without_duplicates()) return;
     invalid_productions_ |= DistinctFormalParametersProduction;
-    duplicate_formal_parameter_error_.location = loc;
-    duplicate_formal_parameter_error_.message = MessageTemplate::kParamDupe;
-    duplicate_formal_parameter_error_.arg = nullptr;
+    reported_errors_.Add(Error(loc, MessageTemplate::kParamDupe,
+                               kDistinctFormalParametersProduction));
   }
 
   // Record a binding that would be invalid in strict mode.  Confusingly this
@@ -238,9 +255,8 @@ class ExpressionClassifier {
                                             const char* arg = nullptr) {
     if (!is_valid_strict_mode_formal_parameters()) return;
     invalid_productions_ |= StrictModeFormalParametersProduction;
-    strict_mode_formal_parameter_error_.location = loc;
-    strict_mode_formal_parameter_error_.message = message;
-    strict_mode_formal_parameter_error_.arg = arg;
+    reported_errors_.Add(
+        Error(loc, message, kStrictModeFormalParametersProduction, arg));
   }
 
   void RecordStrongModeFormalParameterError(const Scanner::Location& loc,
@@ -248,9 +264,8 @@ class ExpressionClassifier {
                                             const char* arg = nullptr) {
     if (!is_valid_strong_mode_formal_parameters()) return;
     invalid_productions_ |= StrongModeFormalParametersProduction;
-    strong_mode_formal_parameter_error_.location = loc;
-    strong_mode_formal_parameter_error_.message = message;
-    strong_mode_formal_parameter_error_.arg = arg;
+    reported_errors_.Add(
+        Error(loc, message, kStrongModeFormalParametersProduction, arg));
   }
 
   void RecordLetPatternError(const Scanner::Location& loc,
@@ -258,9 +273,7 @@ class ExpressionClassifier {
                              const char* arg = nullptr) {
     if (!is_valid_let_pattern()) return;
     invalid_productions_ |= LetPatternProduction;
-    let_pattern_error_.location = loc;
-    let_pattern_error_.message = message;
-    let_pattern_error_.arg = arg;
+    reported_errors_.Add(Error(loc, message, kLetPatternProduction, arg));
   }
 
   void RecordCoverInitializedNameError(const Scanner::Location& loc,
@@ -268,19 +281,22 @@ class ExpressionClassifier {
                                        const char* arg = nullptr) {
     if (has_cover_initialized_name()) return;
     invalid_productions_ |= CoverInitializedNameProduction;
-    cover_initialized_name_error_.location = loc;
-    cover_initialized_name_error_.message = message;
-    cover_initialized_name_error_.arg = arg;
+    reported_errors_.Add(
+        Error(loc, message, kCoverInitializedNameProduction, arg));
   }
 
   void ForgiveCoverInitializedNameError() {
+    if (!(invalid_productions_ & CoverInitializedNameProduction)) return;
     invalid_productions_ &= ~CoverInitializedNameProduction;
-    cover_initialized_name_error_ = Error();
+    Error& e = reported_error(kCoverInitializedNameProduction);
+    e.kind = kUnusedError;
   }
 
   void ForgiveAssignmentPatternError() {
+    if (!(invalid_productions_ & AssignmentPatternProduction)) return;
     invalid_productions_ &= ~AssignmentPatternProduction;
-    assignment_pattern_error_ = Error();
+    Error& e = reported_error(kAssignmentPatternProduction);
+    e.kind = kUnusedError;
   }
 
   void Accumulate(const ExpressionClassifier& inner,
@@ -297,28 +313,11 @@ class ExpressionClassifier {
     errors &= ~invalid_productions_;
     if (errors != 0) {
       invalid_productions_ |= errors;
-      if (errors & ExpressionProduction)
-        expression_error_ = inner.expression_error_;
-      if (errors & FormalParameterInitializerProduction)
-        formal_parameter_initializer_error_ =
-            inner.formal_parameter_initializer_error_;
-      if (errors & BindingPatternProduction)
-        binding_pattern_error_ = inner.binding_pattern_error_;
-      if (errors & AssignmentPatternProduction)
-        assignment_pattern_error_ = inner.assignment_pattern_error_;
-      if (errors & DistinctFormalParametersProduction)
-        duplicate_formal_parameter_error_ =
-            inner.duplicate_formal_parameter_error_;
-      if (errors & StrictModeFormalParametersProduction)
-        strict_mode_formal_parameter_error_ =
-            inner.strict_mode_formal_parameter_error_;
-      if (errors & StrongModeFormalParametersProduction)
-        strong_mode_formal_parameter_error_ =
-            inner.strong_mode_formal_parameter_error_;
-      if (errors & LetPatternProduction)
-        let_pattern_error_ = inner.let_pattern_error_;
-      if (errors & CoverInitializedNameProduction)
-        cover_initialized_name_error_ = inner.cover_initialized_name_error_;
+      for (List<Error>::iterator i = inner.reported_errors_.begin();
+           i != inner.reported_errors_.end(); i++) {
+        if (i->kind == kUnusedError) continue;
+        if (errors & (1 << i->kind)) reported_errors_.Add(*i);
+      }
     }
 
     // As an exception to the above, the result continues to be a valid arrow
@@ -331,26 +330,35 @@ class ExpressionClassifier {
 
       if (!inner.is_valid_binding_pattern()) {
         invalid_productions_ |= ArrowFormalParametersProduction;
-        arrow_formal_parameters_error_ = inner.binding_pattern_error_;
+        const Error& e = inner.reported_error(kBindingPatternProduction);
+        if (e.kind != kUnusedError) reported_errors_.Add(e);
       }
     }
   }
 
  private:
+  Error& reported_error(ErrorKind kind) const {
+    for (List<Error>::iterator i = reported_errors_.begin();
+         i != reported_errors_.end(); i++) {
+      if (i->kind == kind)
+        return *i;
+    }
+    // We should only be looking for an error when we know that one has
+    // been reported.  But we're not...  So this is to make sure we have
+    // the same behaviour.
+    static Error none;
+    return none;
+  }
+
   unsigned invalid_productions_ : 14;
   unsigned function_properties_ : 2;
-  Error expression_error_;
-  Error formal_parameter_initializer_error_;
-  Error binding_pattern_error_;
-  Error assignment_pattern_error_;
-  Error arrow_formal_parameters_error_;
-  Error duplicate_formal_parameter_error_;
-  Error strict_mode_formal_parameter_error_;
-  Error strong_mode_formal_parameter_error_;
-  Error let_pattern_error_;
-  Error cover_initialized_name_error_;
+  List<Error> reported_errors_;
   DuplicateFinder* duplicate_finder_;
 };
+
+
+#undef ERROR_CODES
+
 
 }  // namespace internal
 }  // namespace v8
