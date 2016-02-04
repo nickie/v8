@@ -319,11 +319,13 @@ class ExpressionClassifier {
     unsigned errors =
         non_arrow_productions & non_arrow_inner_invalid_productions;
     errors &= ~invalid_productions_;
+    const Error* binding_err = nullptr;
     if (errors != 0) {
       invalid_productions_ |= errors;
       for (List<Error>::iterator i = inner.reported_errors_.begin();
            i != inner.reported_errors_.end(); i++) {
         if (i->kind == kUnusedError) continue;
+        if (i->kind == kBindingPatternProduction) binding_err = &(*i);
         if (errors & (1 << i->kind)) reported_errors_.Add(*i);
       }
     }
@@ -338,8 +340,12 @@ class ExpressionClassifier {
 
       if (!inner.is_valid_binding_pattern()) {
         invalid_productions_ |= ArrowFormalParametersProduction;
-        const Error& e = inner.reported_error(kBindingPatternProduction);
-        if (e.kind != kUnusedError) reported_errors_.Add(e);
+        if (binding_err != nullptr)
+          reported_errors_.Add(*binding_err);
+        else {
+          const Error& e = inner.reported_error(kBindingPatternProduction);
+          if (e.kind != kUnusedError) reported_errors_.Add(e);
+        }
       }
     }
   }
