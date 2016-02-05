@@ -319,17 +319,6 @@ class ExpressionClassifier {
     unsigned errors =
         non_arrow_productions & non_arrow_inner_invalid_productions;
     errors &= ~invalid_productions_;
-    const Error* binding_err = nullptr;
-    if (errors != 0) {
-      invalid_productions_ |= errors;
-      for (List<Error>::iterator i = inner.reported_errors_.begin();
-           i != inner.reported_errors_.end(); i++) {
-        if (i->kind == kUnusedError) continue;
-        if (i->kind == kBindingPatternProduction) binding_err = &(*i);
-        if (errors & (1 << i->kind)) reported_errors_.Add(*i);
-      }
-    }
-
     // As an exception to the above, the result continues to be a valid arrow
     // formal parameters if the inner expression is a valid binding pattern.
     if (productions & ArrowFormalParametersProduction &&
@@ -338,18 +327,23 @@ class ExpressionClassifier {
       // parameter.
       function_properties_ |= inner.function_properties_;
 
-      if (!inner.is_valid_binding_pattern()) {
-        invalid_productions_ |= ArrowFormalParametersProduction;
-        if (binding_err != nullptr) {
-          reported_errors_.Add(*binding_err);
+      if (!inner.is_valid_binding_pattern())
+        errors |= ArrowFormalParametersProduction;
+    }
+
+    if (errors != 0) {
+      invalid_productions_ |= errors;
+      for (List<Error>::iterator i = inner.reported_errors_.begin();
+           i != inner.reported_errors_.end(); i++) {
+        if (i->kind == kUnusedError ||
+            i->kind == kArrowFormalParametersProduction)
+          continue;
+        if (errors & (1 << i->kind))
+          reported_errors_.Add(*i);
+        if (i->kind == kBindingPatternProduction &&
+            errors & ArrowFormalParametersProduction) {
+          reported_errors_.Add(*i);
           reported_errors_.last().kind = kArrowFormalParametersProduction;
-        }
-        else {
-          const Error& e = inner.reported_error(kBindingPatternProduction);
-          if (e.kind != kUnusedError) {
-            reported_errors_.Add(e);
-            reported_errors_.last().kind = kArrowFormalParametersProduction;
-          }
         }
       }
     }
