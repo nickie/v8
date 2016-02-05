@@ -340,11 +340,16 @@ class ExpressionClassifier {
 
       if (!inner.is_valid_binding_pattern()) {
         invalid_productions_ |= ArrowFormalParametersProduction;
-        if (binding_err != nullptr)
+        if (binding_err != nullptr) {
           reported_errors_.Add(*binding_err);
+          reported_errors_.last().kind = kArrowFormalParametersProduction;
+        }
         else {
           const Error& e = inner.reported_error(kBindingPatternProduction);
-          if (e.kind != kUnusedError) reported_errors_.Add(e);
+          if (e.kind != kUnusedError) {
+            reported_errors_.Add(e);
+            reported_errors_.last().kind = kArrowFormalParametersProduction;
+          }
         }
       }
     }
