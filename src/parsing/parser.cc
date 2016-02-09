@@ -5569,15 +5569,16 @@ void Parser::RewriteDestructuringAssignments() {
   FunctionState* func = function_state_;
   if (!allow_harmony_destructuring_assignment()) return;
   const auto& assignments = func->destructuring_assignments_to_rewrite();
-  for (auto i = assignments.rbegin(); i != assignments.rend(); i++) {
+  for (int i = assignments.length() - 1; i >= 0; --i) {
     // Rewrite list in reverse, so that nested assignment patterns are rewritten
     // correctly.
+    const DestructuringAssignment& pair = assignments.at(i);
     RewritableAssignmentExpression* to_rewrite =
-        i->assignment->AsRewritableAssignmentExpression();
+        pair.assignment->AsRewritableAssignmentExpression();
     DCHECK_NOT_NULL(to_rewrite);
     if (!to_rewrite->is_rewritten()) {
       PatternRewriter::RewriteDestructuringAssignment(this, to_rewrite,
-                                                      i->scope);
+                                                      pair.scope);
     }
   }
 }

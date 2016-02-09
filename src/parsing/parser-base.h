@@ -237,18 +237,20 @@ class ParserBase : public Traits {
 
     typename Traits::Type::Factory* factory() { return factory_; }
 
-    const ZoneVector<DestructuringAssignment>&
+    const ZoneList<DestructuringAssignment>&
         destructuring_assignments_to_rewrite() const {
       return destructuring_assignments_to_rewrite_;
     }
 
     void AddDestructuringAssignment(DestructuringAssignment pair) {
-      destructuring_assignments_to_rewrite_.push_back(pair);
+      destructuring_assignments_to_rewrite_.Add(pair, (*scope_stack_)->zone());
     }
 
-    ZoneVector<ExpressionClassifier::Error>& GetReportedErrorList() {
+    ZoneList<ExpressionClassifier::Error>& GetReportedErrorList() {
       return reported_errors_;
     }
+
+    V8_INLINE Scope* scope() { return *scope_stack_; }
 
    private:
     // Used to assign an index to each literal that needs materialization in
@@ -279,11 +281,11 @@ class ParserBase : public Traits {
     Scope** scope_stack_;
     Scope* outer_scope_;
 
-    ZoneVector<DestructuringAssignment> destructuring_assignments_to_rewrite_;
+    ZoneList<DestructuringAssignment> destructuring_assignments_to_rewrite_;
 
     void RewriteDestructuringAssignments();
 
-    ZoneVector<ExpressionClassifier::Error> reported_errors_;
+    ZoneList<ExpressionClassifier::Error> reported_errors_;
 
     typename Traits::Type::Factory* factory_;
 
@@ -966,8 +968,8 @@ ParserBase<Traits>::FunctionState::FunctionState(
       outer_function_state_(*function_state_stack),
       scope_stack_(scope_stack),
       outer_scope_(*scope_stack),
-      destructuring_assignments_to_rewrite_(scope->zone()),
-      reported_errors_(scope->zone()),
+      destructuring_assignments_to_rewrite_(16, scope->zone()),
+      reported_errors_(16, scope->zone()),
       factory_(factory) {
   *scope_stack_ = scope;
   *function_state_stack = this;
@@ -3413,10 +3415,11 @@ ExpressionClassifier::ExpressionClassifier(
 #endif
                                            const ParserBase<Traits>* p)
     : reported_errors_(p->function_state_->GetReportedErrorList()),
+      zone_(p->function_state_->scope()->zone()),
       invalid_productions_(0),
       function_properties_(0),
       duplicate_finder_(nullptr) {
-  mine_begin_ = mine_end_ = reported_errors_.size();
+  mine_begin_ = mine_end_ = reported_errors_.length();
 #ifdef NICKIE_DEBUG
   fprintf(stderr, "create classifier %p %u- list %p at %s:%d\n", this,
           mine_begin_, &reported_errors_, filename, line);
@@ -3431,10 +3434,11 @@ ExpressionClassifier::ExpressionClassifier(
                                            const ParserBase<Traits>* p,
                                            DuplicateFinder* duplicate_finder)
     : reported_errors_(p->function_state_->GetReportedErrorList()),
+      zone_(p->function_state_->scope()->zone()),
       invalid_productions_(0),
       function_properties_(0),
       duplicate_finder_(duplicate_finder) {
-  mine_begin_ = mine_end_ = reported_errors_.size();
+  mine_begin_ = mine_end_ = reported_errors_.length();
 #ifdef NICKIE_DEBUG
   fprintf(stderr, "create classifier %p %u- list %p at %s:%d\n", this,
           mine_begin_, &reported_errors_, filename, line);

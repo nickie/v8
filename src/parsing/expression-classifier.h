@@ -65,7 +65,7 @@ class ExpressionClassifier {
     const char* arg;
   };
 
-  typedef ZoneVector<Error>::size_type size_type;
+  typedef int size_type;
 
   enum TargetProduction : unsigned {
 #define DEFINE_PRODUCTION(NAME, CODE) NAME = 1 << CODE,
@@ -336,7 +336,7 @@ class ExpressionClassifier {
 #endif
     DCHECK_EQ(&inner.reported_errors_, &reported_errors_);
     DCHECK_EQ(inner.mine_begin_, mine_end_);
-    DCHECK_EQ(inner.mine_end_, reported_errors_.size());
+    DCHECK_EQ(inner.mine_end_, reported_errors_.length());
     // Propagate errors from inner, but don't overwrite already recorded
     // errors.
     unsigned non_arrow_inner_invalid_productions =
@@ -388,7 +388,7 @@ class ExpressionClassifier {
       }
     }
     DCHECK_EQ(mine_end_, next);
-    reported_errors_.resize(next);
+    reported_errors_.Rewind(next);
     inner.mine_begin_ = inner.mine_end_ = next;
 #ifdef NICKIE_DEBUG
     fprintf(stderr, "now classifier %p %u-%u\n", this, mine_begin_, mine_end_);
@@ -400,8 +400,8 @@ class ExpressionClassifier {
     fprintf(stderr, "discard classifier %p %u-%u\n", this,
             mine_begin_, mine_end_);
 #endif
-    if (mine_end_ == reported_errors_.size()) {
-      reported_errors_.resize(mine_begin_);
+    if (mine_end_ == reported_errors_.length()) {
+      reported_errors_.Rewind(mine_begin_);
       mine_end_ = mine_begin_;
     }
     DCHECK_EQ(mine_begin_, mine_end_);
@@ -423,8 +423,8 @@ class ExpressionClassifier {
   }
 
   V8_INLINE void Add(const Error& e) {
-    DCHECK_EQ(mine_end_, reported_errors_.size());
-    reported_errors_.push_back(e);
+    DCHECK_EQ(mine_end_, reported_errors_.length());
+    reported_errors_.Add(e, zone_);
     mine_end_++;
 #ifdef NICKIE_DEBUG
     fprintf(stderr, "adding, now classifier %p %u-%u\n",
@@ -435,13 +435,14 @@ class ExpressionClassifier {
   V8_INLINE void Move(size_type next, size_type i) {
     DCHECK_EQ(mine_end_, next);
     DCHECK_LE(next, i);
-    DCHECK_LT(i, reported_errors_.size());
+    DCHECK_LT(i, reported_errors_.length());
     if (next < i) reported_errors_[next++] = reported_errors_[i];
     mine_end_++;
   }
 
-  // TODO(nikolaos): this should not be here!
-  ZoneVector<Error>& reported_errors_;
+  // TODO(nikolaos): these should not be here!
+  ZoneList<Error>& reported_errors_;
+  Zone* zone_;
 
   unsigned invalid_productions_ : 14;
   unsigned function_properties_ : 2;
