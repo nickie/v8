@@ -65,6 +65,8 @@ class ExpressionClassifier {
     const char* arg;
   };
 
+  typedef ZoneVector<Error>::size_type size_type;
+
   enum TargetProduction : unsigned {
 #define DEFINE_PRODUCTION(NAME, CODE) NAME = 1 << CODE,
     ERROR_CODES(DEFINE_PRODUCTION)
@@ -334,12 +336,12 @@ class ExpressionClassifier {
 #endif
     DCHECK_EQ(&inner.reported_errors_, &reported_errors_);
     DCHECK_EQ(inner.mine_begin_, mine_end_);
-    DCHECK_EQ(inner.mine_end_, reported_errors_.length());
+    DCHECK_EQ(inner.mine_end_, reported_errors_.size());
     // Propagate errors from inner, but don't overwrite already recorded
     // errors.
     unsigned non_arrow_inner_invalid_productions =
         inner.invalid_productions_ & ~ArrowFormalParametersProduction;
-    unsigned next = inner.mine_begin_;
+    size_type next = inner.mine_begin_;
     if (non_arrow_inner_invalid_productions) {
       unsigned non_arrow_productions =
           productions & ~ArrowFormalParametersProduction;
@@ -360,8 +362,8 @@ class ExpressionClassifier {
 
       if (errors != 0) {
         invalid_productions_ |= errors;
-        unsigned arrow_index = inner.mine_end_;
-        for (unsigned i = inner.mine_begin_; i < inner.mine_end_; i++) {
+        size_type arrow_index = inner.mine_end_;
+        for (size_type i = inner.mine_begin_; i < inner.mine_end_; i++) {
           if (reported_errors_[i].kind == kUnusedError ||
               reported_errors_[i].kind == kArrowFormalParametersProduction)
             continue;
@@ -386,7 +388,7 @@ class ExpressionClassifier {
       }
     }
     DCHECK_EQ(mine_end_, next);
-    reported_errors_.Rewind(next);
+    reported_errors_.resize(next);
     inner.mine_begin_ = inner.mine_end_ = next;
 #ifdef NICKIE_DEBUG
     fprintf(stderr, "now classifier %p %u-%u\n", this, mine_begin_, mine_end_);
@@ -398,8 +400,8 @@ class ExpressionClassifier {
     fprintf(stderr, "discard classifier %p %u-%u\n", this,
             mine_begin_, mine_end_);
 #endif
-    if (mine_end_ == reported_errors_.length()) {
-      reported_errors_.Rewind(mine_begin_);
+    if (mine_end_ == reported_errors_.size()) {
+      reported_errors_.resize(mine_begin_);
       mine_end_ = mine_begin_;
     }
     DCHECK_EQ(mine_begin_, mine_end_);
@@ -408,7 +410,7 @@ class ExpressionClassifier {
  private:
   V8_INLINE Error& reported_error(ErrorKind kind) const {
     if (invalid_productions_ & (1 << kind)) {
-      for (unsigned i = mine_begin_; i < mine_end_; i++) {
+      for (size_type i = mine_begin_; i < mine_end_; i++) {
         if (reported_errors_[i].kind == kind)
           return reported_errors_[i];
       }
@@ -421,8 +423,8 @@ class ExpressionClassifier {
   }
 
   V8_INLINE void Add(const Error& e) {
-    DCHECK_EQ(mine_end_, reported_errors_.length());
-    reported_errors_.Add(e);
+    DCHECK_EQ(mine_end_, reported_errors_.size());
+    reported_errors_.push_back(e);
     mine_end_++;
 #ifdef NICKIE_DEBUG
     fprintf(stderr, "adding, now classifier %p %u-%u\n",
@@ -430,21 +432,23 @@ class ExpressionClassifier {
 #endif
   }
 
-  V8_INLINE void Move(unsigned next, unsigned i) {
+  V8_INLINE void Move(size_type next, size_type i) {
     DCHECK_EQ(mine_end_, next);
     DCHECK_LE(next, i);
-    DCHECK_LT(i, reported_errors_.length());
+    DCHECK_LT(i, reported_errors_.size());
     if (next < i) reported_errors_[next++] = reported_errors_[i];
     mine_end_++;
   }
 
   // TODO(nikolaos): this should not be here!
-  List<Error>& reported_errors_;
+  ZoneVector<Error>& reported_errors_;
 
   unsigned invalid_productions_ : 14;
   unsigned function_properties_ : 2;
-  unsigned mine_begin_;
-  unsigned mine_end_;
+
+  size_type mine_begin_;
+  size_type mine_end_;
+
   DuplicateFinder* duplicate_finder_;
   // TODO(nikolaos): the rest is only needed for sanity checking...
 };
