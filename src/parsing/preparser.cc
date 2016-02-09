@@ -575,7 +575,7 @@ PreParser::Statement PreParser::ParseVariableDeclarations(
     int decl_pos = peek_position();
     PreParserExpression pattern = PreParserExpression::Default();
     {
-      ExpressionClassifier pattern_classifier;
+      ExpressionClassifier pattern_classifier(DEBUG_THIS);
       Token::Value next = peek();
       pattern = ParsePrimaryExpression(&pattern_classifier, CHECK_OK);
 
@@ -596,7 +596,7 @@ PreParser::Statement PreParser::ParseVariableDeclarations(
     Scanner::Location variable_loc = scanner()->location();
     nvars++;
     if (Check(Token::ASSIGN)) {
-      ExpressionClassifier classifier;
+      ExpressionClassifier classifier(DEBUG_THIS);
       ParseAssignmentExpression(var_context != kForStatement, &classifier,
                                 CHECK_OK);
       ValidateExpression(&classifier, CHECK_OK);
@@ -650,7 +650,7 @@ PreParser::Statement PreParser::ParseExpressionOrLabelledStatement(bool* ok) {
           IsClassConstructor(function_state_->kind())) {
         bool is_this = peek() == Token::THIS;
         Expression expr = Expression::Default();
-        ExpressionClassifier classifier;
+        ExpressionClassifier classifier(DEBUG_THIS);
         if (is_this) {
           expr = ParseStrongInitializationExpression(&classifier, CHECK_OK);
         } else {
@@ -686,7 +686,7 @@ PreParser::Statement PreParser::ParseExpressionOrLabelledStatement(bool* ok) {
   }
 
   bool starts_with_identifier = peek_any_identifier();
-  ExpressionClassifier classifier;
+  ExpressionClassifier classifier(DEBUG_THIS);
   Expression expr = ParseExpression(true, &classifier, CHECK_OK);
   ValidateExpression(&classifier, CHECK_OK);
 
@@ -939,7 +939,7 @@ PreParser::Statement PreParser::ParseForStatement(bool* ok) {
         }
 
         if (mode == ForEachStatement::ITERATE) {
-          ExpressionClassifier classifier;
+          ExpressionClassifier classifier(DEBUG_THIS);
           Expression enumerable =
               ParseAssignmentExpression(true, &classifier, CHECK_OK);
           RewriteNonPattern(enumerable, &classifier, CHECK_OK);
@@ -953,7 +953,7 @@ PreParser::Statement PreParser::ParseForStatement(bool* ok) {
       }
     } else {
       int lhs_beg_pos = peek_position();
-      ExpressionClassifier classifier;
+      ExpressionClassifier classifier(DEBUG_THIS);
       Expression lhs = ParseExpression(false, &classifier, CHECK_OK);
       int lhs_end_pos = scanner()->location().end_pos;
       is_let_identifier_expression =
@@ -978,7 +978,7 @@ PreParser::Statement PreParser::ParseForStatement(bool* ok) {
         }
 
         if (mode == ForEachStatement::ITERATE) {
-          ExpressionClassifier classifier;
+          ExpressionClassifier classifier(DEBUG_THIS);
           Expression enumerable =
               ParseAssignmentExpression(true, &classifier, CHECK_OK);
           RewriteNonPattern(enumerable, &classifier, CHECK_OK);
@@ -1059,7 +1059,7 @@ PreParser::Statement PreParser::ParseTryStatement(bool* ok) {
   if (tok == Token::CATCH) {
     Consume(Token::CATCH);
     Expect(Token::LPAREN, CHECK_OK);
-    ExpressionClassifier pattern_classifier;
+    ExpressionClassifier pattern_classifier(DEBUG_THIS);
     ParsePrimaryExpression(&pattern_classifier, CHECK_OK);
     ValidateBindingPattern(&pattern_classifier, CHECK_OK);
     Expect(Token::RPAREN, CHECK_OK);
@@ -1117,7 +1117,7 @@ PreParser::Expression PreParser::ParseFunctionLiteral(
   FunctionState function_state(&function_state_, &scope_, function_scope, kind,
                                &factory);
   DuplicateFinder duplicate_finder(scanner()->unicode_cache());
-  ExpressionClassifier formals_classifier(&duplicate_finder);
+  ExpressionClassifier formals_classifier(DEBUG_THIS, &duplicate_finder);
 
   Expect(Token::LPAREN, CHECK_OK);
   int start_position = scanner()->location().beg_pos;
@@ -1224,7 +1224,7 @@ PreParserExpression PreParser::ParseClassLiteral(
 
   bool has_extends = Check(Token::EXTENDS);
   if (has_extends) {
-    ExpressionClassifier classifier;
+    ExpressionClassifier classifier(DEBUG_THIS);
     ParseLeftHandSideExpression(&classifier, CHECK_OK);
     ValidateExpression(&classifier, CHECK_OK);
   }
@@ -1240,7 +1240,7 @@ PreParserExpression PreParser::ParseClassLiteral(
     bool is_computed_name = false;  // Classes do not care about computed
                                     // property names here.
     Identifier name;
-    ExpressionClassifier classifier;
+    ExpressionClassifier classifier(DEBUG_THIS);
     ParsePropertyDefinition(&checker, in_class, has_extends, is_static,
                             &is_computed_name, &has_seen_constructor,
                             &classifier, &name, CHECK_OK);
@@ -1264,7 +1264,7 @@ PreParser::Expression PreParser::ParseV8Intrinsic(bool* ok) {
   // Allow "eval" or "arguments" for backward compatibility.
   ParseIdentifier(kAllowRestrictedIdentifiers, CHECK_OK);
   Scanner::Location spread_pos;
-  ExpressionClassifier classifier;
+  ExpressionClassifier classifier(DEBUG_THIS);
   ParseArguments(&spread_pos, &classifier, ok);
   ValidateExpression(&classifier, CHECK_OK);
 

@@ -246,6 +246,10 @@ class ParserBase : public Traits {
       destructuring_assignments_to_rewrite_.Add(pair);
     }
 
+    List<ExpressionClassifier::Error>& GetReportedErrorList() {
+      return reported_errors_;
+    }
+
    private:
     // Used to assign an index to each literal that needs materialization in
     // the function.  Includes regexp literals, and boilerplate for object and
@@ -278,6 +282,8 @@ class ParserBase : public Traits {
     List<DestructuringAssignment> destructuring_assignments_to_rewrite_;
 
     void RewriteDestructuringAssignments();
+
+    List<ExpressionClassifier::Error> reported_errors_;
 
     typename Traits::Type::Factory* factory_;
 
@@ -668,12 +674,21 @@ class ParserBase : public Traits {
     classifier->RecordExpressionError(scanner()->peek_location(), message, arg);
   }
 
-  void BindingPatternUnexpectedToken(ExpressionClassifier* classifier) {
+  ExpressionClassifier::Error BindingPatternUnexpectedToken() {
     MessageTemplate::Template message = MessageTemplate::kUnexpectedToken;
     const char* arg;
     GetUnexpectedTokenMessage(peek(), &message, &arg);
-    classifier->RecordBindingPatternError(scanner()->peek_location(), message,
-                                          arg);
+    return ExpressionClassifier::BindingPatternError(scanner()->peek_location(),
+                                                     message, arg);
+  }
+
+  void BindingPatternUnexpectedToken(ExpressionClassifier* classifier,
+                                     const ExpressionClassifier::Error& e) {
+    classifier->RecordBindingPatternError(e);
+  }
+
+  void BindingPatternUnexpectedToken(ExpressionClassifier* classifier) {
+    BindingPatternUnexpectedToken(classifier, BindingPatternUnexpectedToken());
   }
 
   void ArrowFormalParametersUnexpectedToken(ExpressionClassifier* classifier) {
@@ -931,6 +946,8 @@ class ParserBase : public Traits {
   bool allow_legacy_const_;
   bool allow_harmony_do_expressions_;
   bool allow_harmony_function_name_;
+
+  friend ExpressionClassifier;  // TODO(nikolaos): we'll see about this!
 };
 
 
@@ -1036,7 +1053,7 @@ void ParserBase<Traits>::ReportUnexpectedTokenAt(
 template <class Traits>
 typename ParserBase<Traits>::IdentifierT ParserBase<Traits>::ParseIdentifier(
     AllowRestrictedIdentifiers allow_restricted_identifiers, bool* ok) {
-  ExpressionClassifier classifier;
+  ExpressionClassifier classifier(DEBUG_THIS);
   auto result = ParseAndClassifyIdentifier(&classifier, ok);
   if (!*ok) return Traits::EmptyIdentifier();
 
@@ -1418,7 +1435,7 @@ ParserBase<Traits>::ParsePrimaryExpression(ExpressionClassifier* classifier,
 template <class Traits>
 typename ParserBase<Traits>::ExpressionT ParserBase<Traits>::ParseExpression(
     bool accept_IN, bool* ok) {
-  ExpressionClassifier classifier;
+  ExpressionClassifier classifier(DEBUG_THIS);
   ExpressionT result = ParseExpression(accept_IN, &classifier, CHECK_OK);
   result = Traits::RewriteNonPattern(result, &classifier, CHECK_OK);
   return result;
@@ -1439,7 +1456,7 @@ typename ParserBase<Traits>::ExpressionT ParserBase<Traits>::ParseExpression(
   //   AssignmentExpression
   //   Expression ',' AssignmentExpression
 
-  ExpressionClassifier binding_classifier;
+  ExpressionClassifier binding_classifier(DEBUG_THIS);
   ExpressionT result = this->ParseAssignmentExpression(
       accept_IN, flags, &binding_classifier, CHECK_OK);
   classifier->Accumulate(binding_classifier,
@@ -1465,8 +1482,11 @@ typename ParserBase<Traits>::ExpressionT ParserBase<Traits>::ParseExpression(
       seen_rest = is_rest = true;
     }
     int pos = position(), expr_pos = peek_position();
+    ExpressionClassifier binding_classifier(DEBUG_THIS);
     ExpressionT right = this->ParseAssignmentExpression(
         accept_IN, flags, &binding_classifier, CHECK_OK);
+    classifier->Accumulate(binding_classifier,
+                           ExpressionClassifier::AllProductions);
     if (is_rest) {
       if (!this->IsIdentifier(right) && !right->IsObjectLiteral() &&
           !right->IsArrayLiteral()) {
@@ -1478,8 +1498,6 @@ typename ParserBase<Traits>::ExpressionT ParserBase<Traits>::ParseExpression(
     }
     is_simple_parameter_list =
         is_simple_parameter_list && this->IsIdentifier(right);
-    classifier->Accumulate(binding_classifier,
-                           ExpressionClassifier::AllProductions);
     result = factory()->NewBinaryOperation(Token::COMMA, result, right, pos);
   }
   if (!is_simple_parameter_list || seen_rest) {
@@ -1591,7 +1609,7 @@ typename ParserBase<Traits>::ExpressionT ParserBase<Traits>::ParsePropertyName(
     case Token::LBRACK: {
       *is_computed_name = true;
       Consume(Token::LBRACK);
-      ExpressionClassifier computed_name_classifier;
+      ExpressionClassifier computed_name_classifier(DEBUG_THIS);
       ExpressionT expression =
           ParseAssignmentExpression(true, &computed_name_classifier, CHECK_OK);
       expression = Traits::RewriteNonPattern(
@@ -1682,7 +1700,7 @@ ParserBase<Traits>::ParsePropertyDefinition(
 
       if (peek() == Token::ASSIGN) {
         Consume(Token::ASSIGN);
-        ExpressionClassifier rhs_classifier;
+        ExpressionClassifier rhs_classifier(DEBUG_THIS);
         ExpressionT rhs = this->ParseAssignmentExpression(
             true, &rhs_classifier, CHECK_OK_CUSTOM(EmptyObjectLiteralProperty));
         rhs = Traits::RewriteNonPattern(
@@ -1964,7 +1982,8 @@ ParserBase<Traits>::ParseAssignmentExpression(bool accept_IN, int flags,
 
   FuncNameInferrer::State fni_state(fni_);
   ParserBase<Traits>::Checkpoint checkpoint(this);
-  ExpressionClassifier arrow_formals_classifier(classifier->duplicate_finder());
+  ExpressionClassifier arrow_formals_classifier(DEBUG_THIS,
+                                                classifier->duplicate_finder());
   bool parenthesized_formals = peek() == Token::LPAREN;
   if (!parenthesized_formals) {
     ArrowFormalParametersUnexpectedToken(&arrow_formals_classifier);
@@ -1972,7 +1991,7 @@ ParserBase<Traits>::ParseAssignmentExpression(bool accept_IN, int flags,
   ExpressionT expression = this->ParseConditionalExpression(
       accept_IN, &arrow_formals_classifier, CHECK_OK);
   if (peek() == Token::ARROW) {
-    BindingPatternUnexpectedToken(classifier);
+    ExpressionClassifier::Error e = BindingPatternUnexpectedToken();
     ValidateArrowFormalParameters(&arrow_formals_classifier, expression,
                                   parenthesized_formals, CHECK_OK);
     Scanner::Location loc(lhs_beg_pos, scanner()->location().end_pos);
@@ -2000,6 +2019,9 @@ ParserBase<Traits>::ParseAssignmentExpression(bool accept_IN, int flags,
     }
     expression = this->ParseArrowFunctionLiteral(
         accept_IN, parameters, arrow_formals_classifier, CHECK_OK);
+    arrow_formals_classifier.Discard();
+    BindingPatternUnexpectedToken(classifier, e);
+
     if (maybe_pattern_element) {
       classifier->RecordPatternError(
           Scanner::Location(lhs_beg_pos, scanner()->location().end_pos),
@@ -2069,7 +2091,7 @@ ParserBase<Traits>::ParseAssignmentExpression(bool accept_IN, int flags,
   }
   int pos = position();
 
-  ExpressionClassifier rhs_classifier;
+  ExpressionClassifier rhs_classifier(DEBUG_THIS);
 
   ExpressionT right =
       this->ParseAssignmentExpression(accept_IN, &rhs_classifier, CHECK_OK);
@@ -2909,13 +2931,14 @@ void ParserBase<Traits>::ParseFormalParameter(
 
   ExpressionT initializer = Traits::EmptyExpression();
   if (!is_rest && allow_harmony_default_parameters() && Check(Token::ASSIGN)) {
-    ExpressionClassifier init_classifier;
+    ExpressionClassifier init_classifier(DEBUG_THIS);
     initializer = ParseAssignmentExpression(true, &init_classifier, ok);
     if (!*ok) return;
     initializer = Traits::RewriteNonPattern(initializer, &init_classifier, ok);
     ValidateFormalParameterInitializer(&init_classifier, ok);
     if (!*ok) return;
     parameters->is_simple = false;
+    init_classifier.Discard();
     classifier->RecordNonSimpleParameter();
 
     if (allow_harmony_function_name()) {
@@ -3087,7 +3110,7 @@ ParserBase<Traits>::ParseArrowFunctionLiteral(
       // Single-expression body
       int pos = position();
       parenthesized_function_ = false;
-      ExpressionClassifier classifier;
+      ExpressionClassifier classifier(DEBUG_THIS);
       ExpressionT expression =
           ParseAssignmentExpression(accept_IN, &classifier, CHECK_OK);
       expression = Traits::RewriteNonPattern(expression, &classifier, CHECK_OK);
@@ -3250,7 +3273,7 @@ typename ParserBase<Traits>::ExpressionT
 ParserBase<Traits>::CheckAndRewriteReferenceExpression(
     ExpressionT expression, int beg_pos, int end_pos,
     MessageTemplate::Template message, ParseErrorType type, bool* ok) {
-  ExpressionClassifier classifier;
+  ExpressionClassifier classifier(DEBUG_THIS);
   ExpressionT result = ClassifyAndRewriteReferenceExpression(
       &classifier, expression, beg_pos, end_pos, message, type);
   ValidateExpression(&classifier, ok);
@@ -3377,6 +3400,46 @@ void ParserBase<Traits>::ClassLiteralChecker::CheckProperty(
     return;
   }
 }
+
+
+// TODO(nikolaos): This does not belong here, let's just try and see...
+
+template <typename Traits>
+ExpressionClassifier::ExpressionClassifier(
+#ifdef NICKIE_DEBUG
+                                           const char *filename, int line,
+#endif
+                                           const ParserBase<Traits>* p)
+    : reported_errors_(p->function_state_->GetReportedErrorList()),
+      invalid_productions_(0),
+      function_properties_(0),
+      duplicate_finder_(nullptr) {
+  mine_begin_ = mine_end_ = reported_errors_.length();
+#ifdef NICKIE_DEBUG
+  fprintf(stderr, "create classifier %p %u- list %p at %s:%d\n", this,
+          mine_begin_, &reported_errors_, filename, line);
+#endif
+}
+
+template <typename Traits>
+ExpressionClassifier::ExpressionClassifier(
+#ifdef NICKIE_DEBUG
+                                           const char *filename, int line,
+#endif
+                                           const ParserBase<Traits>* p,
+                                           DuplicateFinder* duplicate_finder)
+    : reported_errors_(p->function_state_->GetReportedErrorList()),
+      invalid_productions_(0),
+      function_properties_(0),
+      duplicate_finder_(duplicate_finder) {
+  mine_begin_ = mine_end_ = reported_errors_.length();
+#ifdef NICKIE_DEBUG
+  fprintf(stderr, "create classifier %p %u- list %p at %s:%d\n", this,
+          mine_begin_, &reported_errors_, filename, line);
+#endif
+}
+
+
 }  // namespace internal
 }  // namespace v8
 

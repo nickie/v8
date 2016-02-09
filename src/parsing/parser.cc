@@ -1056,7 +1056,7 @@ FunctionLiteral* Parser::ParseLazy(Isolate* isolate, ParseInfo* info,
       SetLanguageMode(scope, shared_info->language_mode());
 
       scope->set_start_position(shared_info->start_position());
-      ExpressionClassifier formals_classifier;
+      ExpressionClassifier formals_classifier(DEBUG_THIS);
       ParserFormalParameters formals(scope);
       Checkpoint checkpoint(this);
       {
@@ -1609,7 +1609,7 @@ Statement* Parser::ParseExportDefault(bool* ok) {
 
     default: {
       int pos = peek_position();
-      ExpressionClassifier classifier;
+      ExpressionClassifier classifier(DEBUG_THIS);
       Expression* expr = ParseAssignmentExpression(true, &classifier, CHECK_OK);
       expr = RewriteNonPattern(expr, &classifier, CHECK_OK);
 
@@ -2403,7 +2403,7 @@ void Parser::ParseVariableDeclarations(VariableDeclarationContext var_context,
     Expression* pattern;
     int decl_pos = peek_position();
     {
-      ExpressionClassifier pattern_classifier;
+      ExpressionClassifier pattern_classifier(DEBUG_THIS);
       Token::Value next = peek();
       pattern = ParsePrimaryExpression(&pattern_classifier, ok);
       if (!*ok) return;
@@ -2431,7 +2431,7 @@ void Parser::ParseVariableDeclarations(VariableDeclarationContext var_context,
     Expression* value = NULL;
     int initializer_position = RelocInfo::kNoPosition;
     if (Check(Token::ASSIGN)) {
-      ExpressionClassifier classifier;
+      ExpressionClassifier classifier(DEBUG_THIS);
       value = ParseAssignmentExpression(var_context != kForStatement,
                                         &classifier, ok);
       if (!*ok) return;
@@ -2537,7 +2537,7 @@ Statement* Parser::ParseExpressionOrLabelledStatement(
           IsClassConstructor(function_state_->kind())) {
         bool is_this = peek() == Token::THIS;
         Expression* expr;
-        ExpressionClassifier classifier;
+        ExpressionClassifier classifier(DEBUG_THIS);
         if (is_this) {
           expr = ParseStrongInitializationExpression(&classifier, CHECK_OK);
         } else {
@@ -3032,7 +3032,7 @@ TryStatement* Parser::ParseTryStatement(bool* ok) {
     catch_scope = NewScope(scope_, CATCH_SCOPE);
     catch_scope->set_start_position(scanner()->location().beg_pos);
 
-    ExpressionClassifier pattern_classifier;
+    ExpressionClassifier pattern_classifier(DEBUG_THIS);
     Expression* pattern = ParsePrimaryExpression(&pattern_classifier, CHECK_OK);
     ValidateBindingPattern(&pattern_classifier, CHECK_OK);
 
@@ -3655,7 +3655,7 @@ Statement* Parser::ParseForStatement(ZoneList<const AstRawString*>* labels,
 
         Expression* enumerable;
         if (mode == ForEachStatement::ITERATE) {
-          ExpressionClassifier classifier;
+          ExpressionClassifier classifier(DEBUG_THIS);
           enumerable = ParseAssignmentExpression(true, &classifier, CHECK_OK);
           enumerable = RewriteNonPattern(enumerable, &classifier, CHECK_OK);
         } else {
@@ -3742,7 +3742,7 @@ Statement* Parser::ParseForStatement(ZoneList<const AstRawString*>* labels,
       }
     } else {
       int lhs_beg_pos = peek_position();
-      ExpressionClassifier classifier;
+      ExpressionClassifier classifier(DEBUG_THIS);
       Expression* expression = ParseExpression(false, &classifier, CHECK_OK);
       int lhs_end_pos = scanner()->location().end_pos;
       ForEachStatement::VisitMode mode;
@@ -3777,7 +3777,7 @@ Statement* Parser::ParseForStatement(ZoneList<const AstRawString*>* labels,
 
         Expression* enumerable;
         if (mode == ForEachStatement::ITERATE) {
-          ExpressionClassifier classifier;
+          ExpressionClassifier classifier(DEBUG_THIS);
           enumerable = ParseAssignmentExpression(true, &classifier, CHECK_OK);
           enumerable = RewriteNonPattern(enumerable, &classifier, CHECK_OK);
         } else {
@@ -4064,7 +4064,11 @@ void ParserTraits::ParseArrowFunctionFormalParameterList(
   ParseArrowFunctionFormalParameters(parameters, expr, params_loc, ok);
   if (!*ok) return;
 
-  ExpressionClassifier classifier;
+#ifdef NICKIE_DEBUG
+  ExpressionClassifier classifier(__FILE__, __LINE__, parser_);
+#else
+  ExpressionClassifier classifier(parser_);
+#endif
   if (!parameters->is_simple) {
     classifier.RecordNonSimpleParameter();
   }
@@ -4166,17 +4170,18 @@ FunctionLiteral* Parser::ParseFunctionLiteral(
   int materialized_literal_count = -1;
   int expected_property_count = -1;
   DuplicateFinder duplicate_finder(scanner()->unicode_cache());
-  ExpressionClassifier formals_classifier(&duplicate_finder);
   FunctionLiteral::EagerCompileHint eager_compile_hint =
       parenthesized_function_ ? FunctionLiteral::kShouldEagerCompile
                               : FunctionLiteral::kShouldLazyCompile;
   bool should_be_used_once_hint = false;
+  bool has_duplicate_parameters;
   // Parse function.
   {
     AstNodeFactory function_factory(ast_value_factory());
     FunctionState function_state(&function_state_, &scope_, scope, kind,
                                  &function_factory);
     scope_->SetScopeName(function_name);
+    ExpressionClassifier formals_classifier(DEBUG_THIS, &duplicate_finder);
 
     if (is_generator) {
       // For generators, allocating variables in contexts is currently a win
@@ -4355,10 +4360,10 @@ FunctionLiteral* Parser::ParseFunctionLiteral(
       // If body can be inspected, rewrite queued destructuring assignments
       ParserTraits::RewriteDestructuringAssignments();
     }
+    has_duplicate_parameters =
+      !formals_classifier.is_valid_formal_parameter_list_without_duplicates();
   }
 
-  bool has_duplicate_parameters =
-      !formals_classifier.is_valid_formal_parameter_list_without_duplicates();
   FunctionLiteral::ParameterFlag duplicate_parameters =
       has_duplicate_parameters ? FunctionLiteral::kHasDuplicateParameters
                                : FunctionLiteral::kNoDuplicateParameters;
@@ -4834,7 +4839,7 @@ ClassLiteral* Parser::ParseClassLiteral(const AstRawString* name,
   Expression* extends = NULL;
   if (Check(Token::EXTENDS)) {
     block_scope->set_start_position(scanner()->location().end_pos);
-    ExpressionClassifier classifier;
+    ExpressionClassifier classifier(DEBUG_THIS);
     extends = ParseLeftHandSideExpression(&classifier, CHECK_OK);
     extends = RewriteNonPattern(extends, &classifier, CHECK_OK);
   } else {
@@ -4857,7 +4862,7 @@ ClassLiteral* Parser::ParseClassLiteral(const AstRawString* name,
     const bool is_static = false;
     bool is_computed_name = false;  // Classes do not care about computed
                                     // property names here.
-    ExpressionClassifier classifier;
+    ExpressionClassifier classifier(DEBUG_THIS);
     const AstRawString* property_name = nullptr;
     ObjectLiteral::Property* property = ParsePropertyDefinition(
         &checker, in_class, has_extends, is_static, &is_computed_name,
@@ -4914,7 +4919,7 @@ Expression* Parser::ParseV8Intrinsic(bool* ok) {
   const AstRawString* name = ParseIdentifier(kAllowRestrictedIdentifiers,
                                              CHECK_OK);
   Scanner::Location spread_pos;
-  ExpressionClassifier classifier;
+  ExpressionClassifier classifier(DEBUG_THIS);
   ZoneList<Expression*>* args =
       ParseArguments(&spread_pos, &classifier, CHECK_OK);
 

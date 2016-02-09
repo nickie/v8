@@ -2,6 +2,14 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#undef NICKIE_DEBUG
+
+#ifdef NICKIE_DEBUG
+#define DEBUG_THIS __FILE__, __LINE__, this
+#else
+#define DEBUG_THIS this
+#endif
+
 #ifndef V8_PARSING_EXPRESSION_CLASSIFIER_H
 #define V8_PARSING_EXPRESSION_CLASSIFIER_H
 
@@ -12,6 +20,8 @@
 namespace v8 {
 namespace internal {
 
+template <typename Traits>
+class ParserBase;
 
 #define ERROR_CODES(T)                          \
   T(ExpressionProduction, 0)                    \
@@ -77,17 +87,22 @@ class ExpressionClassifier {
     NonSimpleParameter = 1 << 0
   };
 
-  ExpressionClassifier()
-      : invalid_productions_(0),
-        function_properties_(0),
-        reported_errors_(3),  // statistics: 3 covers 90-99% of cases
-        duplicate_finder_(nullptr) {}
+  template <typename Traits>
+  explicit ExpressionClassifier(
+#ifdef NICKIE_DEBUG
+                                const char *filename, int line,
+#endif
+                                const ParserBase<Traits>* p);
 
-  explicit ExpressionClassifier(DuplicateFinder* duplicate_finder)
-      : invalid_productions_(0),
-        function_properties_(0),
-        reported_errors_(3),  // statistics: 3 covers 90-99% of cases
-        duplicate_finder_(duplicate_finder) {}
+  template <typename Traits>
+  ExpressionClassifier(
+#ifdef NICKIE_DEBUG
+                       const char *filename, int line,
+#endif
+                       const ParserBase<Traits>* p,
+                       DuplicateFinder* duplicate_finder);
+
+  ~ExpressionClassifier() { Discard(); }
 
   V8_INLINE bool is_valid(unsigned productions) const {
     return (invalid_productions_ & productions) == 0;
@@ -189,12 +204,12 @@ class ExpressionClassifier {
     function_properties_ |= NonSimpleParameter;
   }
 
-  V8_INLINE void RecordExpressionError(const Scanner::Location& loc,
-                                       MessageTemplate::Template message,
-                                       const char* arg = nullptr) {
+  void RecordExpressionError(const Scanner::Location& loc,
+                             MessageTemplate::Template message,
+                             const char* arg = nullptr) {
     if (!is_valid_expression()) return;
     invalid_productions_ |= ExpressionProduction;
-    reported_errors_.Add(Error(loc, message, kExpressionProduction, arg));
+    Add(Error(loc, message, kExpressionProduction, arg));
   }
 
   void RecordExpressionError(const Scanner::Location& loc,
@@ -202,8 +217,7 @@ class ExpressionClassifier {
                              ParseErrorType type, const char* arg = nullptr) {
     if (!is_valid_expression()) return;
     invalid_productions_ |= ExpressionProduction;
-    reported_errors_.Add(
-        Error(loc, message, kExpressionProduction, arg, type));
+    Add(Error(loc, message, kExpressionProduction, arg, type));
   }
 
   void RecordFormalParameterInitializerError(const Scanner::Location& loc,
@@ -211,16 +225,25 @@ class ExpressionClassifier {
                                              const char* arg = nullptr) {
     if (!is_valid_formal_parameter_initializer()) return;
     invalid_productions_ |= FormalParameterInitializerProduction;
-    reported_errors_.Add(
-        Error(loc, message, kFormalParameterInitializerProduction, arg));
+    Add(Error(loc, message, kFormalParameterInitializerProduction, arg));
+  }
+
+  static Error BindingPatternError(const Scanner::Location& loc,
+                                   MessageTemplate::Template message,
+                                   const char* arg = nullptr) {
+    return Error(loc, message, kBindingPatternProduction, arg);
+  }
+
+  void RecordBindingPatternError(const Error& e) {
+    if (!is_valid_binding_pattern()) return;
+    invalid_productions_ |= BindingPatternProduction;
+    Add(e);
   }
 
   void RecordBindingPatternError(const Scanner::Location& loc,
                                  MessageTemplate::Template message,
                                  const char* arg = nullptr) {
-    if (!is_valid_binding_pattern()) return;
-    invalid_productions_ |= BindingPatternProduction;
-    reported_errors_.Add(Error(loc, message, kBindingPatternProduction, arg));
+    RecordBindingPatternError(BindingPatternError(loc, message, arg));
   }
 
   void RecordAssignmentPatternError(const Scanner::Location& loc,
@@ -228,8 +251,7 @@ class ExpressionClassifier {
                                     const char* arg = nullptr) {
     if (!is_valid_assignment_pattern()) return;
     invalid_productions_ |= AssignmentPatternProduction;
-    reported_errors_.Add(
-        Error(loc, message, kAssignmentPatternProduction, arg));
+    Add(Error(loc, message, kAssignmentPatternProduction, arg));
   }
 
   void RecordPatternError(const Scanner::Location& loc,
@@ -244,15 +266,14 @@ class ExpressionClassifier {
                                         const char* arg = nullptr) {
     if (!is_valid_arrow_formal_parameters()) return;
     invalid_productions_ |= ArrowFormalParametersProduction;
-    reported_errors_.Add(
-        Error(loc, message, kArrowFormalParametersProduction, arg));
+    Add(Error(loc, message, kArrowFormalParametersProduction, arg));
   }
 
   void RecordDuplicateFormalParameterError(const Scanner::Location& loc) {
     if (!is_valid_formal_parameter_list_without_duplicates()) return;
     invalid_productions_ |= DistinctFormalParametersProduction;
-    reported_errors_.Add(Error(loc, MessageTemplate::kParamDupe,
-                               kDistinctFormalParametersProduction));
+    Add(Error(loc, MessageTemplate::kParamDupe,
+              kDistinctFormalParametersProduction));
   }
 
   // Record a binding that would be invalid in strict mode.  Confusingly this
@@ -263,8 +284,7 @@ class ExpressionClassifier {
                                             const char* arg = nullptr) {
     if (!is_valid_strict_mode_formal_parameters()) return;
     invalid_productions_ |= StrictModeFormalParametersProduction;
-    reported_errors_.Add(
-        Error(loc, message, kStrictModeFormalParametersProduction, arg));
+    Add(Error(loc, message, kStrictModeFormalParametersProduction, arg));
   }
 
   void RecordStrongModeFormalParameterError(const Scanner::Location& loc,
@@ -272,8 +292,7 @@ class ExpressionClassifier {
                                             const char* arg = nullptr) {
     if (!is_valid_strong_mode_formal_parameters()) return;
     invalid_productions_ |= StrongModeFormalParametersProduction;
-    reported_errors_.Add(
-        Error(loc, message, kStrongModeFormalParametersProduction, arg));
+    Add(Error(loc, message, kStrongModeFormalParametersProduction, arg));
   }
 
   void RecordLetPatternError(const Scanner::Location& loc,
@@ -281,7 +300,7 @@ class ExpressionClassifier {
                              const char* arg = nullptr) {
     if (!is_valid_let_pattern()) return;
     invalid_productions_ |= LetPatternProduction;
-    reported_errors_.Add(Error(loc, message, kLetPatternProduction, arg));
+    Add(Error(loc, message, kLetPatternProduction, arg));
   }
 
   void RecordCoverInitializedNameError(const Scanner::Location& loc,
@@ -289,8 +308,7 @@ class ExpressionClassifier {
                                        const char* arg = nullptr) {
     if (has_cover_initialized_name()) return;
     invalid_productions_ |= CoverInitializedNameProduction;
-    reported_errors_.Add(
-        Error(loc, message, kCoverInitializedNameProduction, arg));
+    Add(Error(loc, message, kCoverInitializedNameProduction, arg));
   }
 
   void ForgiveCoverInitializedNameError() {
@@ -307,54 +325,93 @@ class ExpressionClassifier {
     e.kind = kUnusedError;
   }
 
-  void Accumulate(const ExpressionClassifier& inner,
+  void Accumulate(ExpressionClassifier& inner,
                   unsigned productions = StandardProductions) {
+#ifdef NICKIE_DEBUG
+    fprintf(stderr, "accumulate classifier %p %u-%u in %p %u-%u\n",
+            &inner, inner.mine_begin_, inner.mine_end_,
+            this, mine_begin_, mine_end_);
+#endif
+    DCHECK_EQ(&inner.reported_errors_, &reported_errors_);
+    DCHECK_EQ(inner.mine_begin_, mine_end_);
+    DCHECK_EQ(inner.mine_end_, reported_errors_.length());
     // Propagate errors from inner, but don't overwrite already recorded
     // errors.
     unsigned non_arrow_inner_invalid_productions =
         inner.invalid_productions_ & ~ArrowFormalParametersProduction;
-    if (non_arrow_inner_invalid_productions == 0) return;
-    unsigned non_arrow_productions =
-        productions & ~ArrowFormalParametersProduction;
-    unsigned errors =
-        non_arrow_productions & non_arrow_inner_invalid_productions;
-    errors &= ~invalid_productions_;
-    // As an exception to the above, the result continues to be a valid arrow
-    // formal parameters if the inner expression is a valid binding pattern.
-    if (productions & ArrowFormalParametersProduction &&
-        is_valid_arrow_formal_parameters()) {
-      // Also copy function properties if expecting an arrow function
-      // parameter.
-      function_properties_ |= inner.function_properties_;
+    unsigned next = inner.mine_begin_;
+    if (non_arrow_inner_invalid_productions) {
+      unsigned non_arrow_productions =
+          productions & ~ArrowFormalParametersProduction;
+      unsigned errors =
+          non_arrow_productions & non_arrow_inner_invalid_productions;
+      errors &= ~invalid_productions_;
+      // As an exception to the above, the result continues to be a valid arrow
+      // formal parameters if the inner expression is a valid binding pattern.
+      if (productions & ArrowFormalParametersProduction &&
+          is_valid_arrow_formal_parameters()) {
+        // Also copy function properties if expecting an arrow function
+        // parameter.
+        function_properties_ |= inner.function_properties_;
 
-      if (!inner.is_valid_binding_pattern())
-        errors |= ArrowFormalParametersProduction;
-    }
+        if (!inner.is_valid_binding_pattern())
+          errors |= ArrowFormalParametersProduction;
+      }
 
-    if (errors != 0) {
-      invalid_productions_ |= errors;
-      for (List<Error>::iterator i = inner.reported_errors_.begin();
-           i != inner.reported_errors_.end(); i++) {
-        if (i->kind == kUnusedError ||
-            i->kind == kArrowFormalParametersProduction)
-          continue;
-        if (errors & (1 << i->kind))
-          reported_errors_.Add(*i);
-        if (i->kind == kBindingPatternProduction &&
-            errors & ArrowFormalParametersProduction) {
-          reported_errors_.Add(*i);
-          reported_errors_.last().kind = kArrowFormalParametersProduction;
+      if (errors != 0) {
+        invalid_productions_ |= errors;
+        unsigned arrow_index = inner.mine_end_;
+        for (unsigned i = inner.mine_begin_; i < inner.mine_end_; i++) {
+          if (reported_errors_[i].kind == kUnusedError ||
+              reported_errors_[i].kind == kArrowFormalParametersProduction)
+            continue;
+          if (errors & (1 << reported_errors_[i].kind))
+            Move(next++, i);
+          if (reported_errors_[i].kind == kBindingPatternProduction &&
+              errors & ArrowFormalParametersProduction) {
+            if (next <= i) {
+              Move(next, i);
+              reported_errors_[next++].kind = kArrowFormalParametersProduction;
+            }
+            else {
+              DCHECK_EQ(next, i+1);
+              arrow_index = i;
+            }
+          }
+        }
+        if (arrow_index < inner.mine_end_) {
+          Add(reported_errors_[arrow_index]);
+          reported_errors_[next++].kind = kArrowFormalParametersProduction;
         }
       }
     }
+    DCHECK_EQ(mine_end_, next);
+    reported_errors_.Rewind(next);
+    inner.mine_begin_ = inner.mine_end_ = next;
+#ifdef NICKIE_DEBUG
+    fprintf(stderr, "now classifier %p %u-%u\n", this, mine_begin_, mine_end_);
+#endif
+  }
+
+  V8_INLINE void Discard() {
+#ifdef NICKIE_DEBUG
+    fprintf(stderr, "discard classifier %p %u-%u\n", this,
+            mine_begin_, mine_end_);
+#endif
+    if (mine_end_ == reported_errors_.length()) {
+      reported_errors_.Rewind(mine_begin_);
+      mine_end_ = mine_begin_;
+    }
+    DCHECK_EQ(mine_begin_, mine_end_);
   }
 
  private:
   V8_INLINE Error& reported_error(ErrorKind kind) const {
-    for (List<Error>::iterator i = reported_errors_.begin();
-         i != reported_errors_.end(); i++) {
-      if (i->kind == kind)
-        return *i;
+    if (invalid_productions_ & (1 << kind)) {
+      for (unsigned i = mine_begin_; i < mine_end_; i++) {
+        if (reported_errors_[i].kind == kind)
+          return reported_errors_[i];
+      }
     }
     // We should only be looking for an error when we know that one has
     // been reported.  But we're not...  So this is to make sure we have
@@ -363,10 +420,33 @@ class ExpressionClassifier {
     return none;
   }
 
+  V8_INLINE void Add(const Error& e) {
+    DCHECK_EQ(mine_end_, reported_errors_.length());
+    reported_errors_.Add(e);
+    mine_end_++;
+#ifdef NICKIE_DEBUG
+    fprintf(stderr, "adding, now classifier %p %u-%u\n",
+            this, mine_begin_, mine_end_);
+#endif
+  }
+
+  V8_INLINE void Move(unsigned next, unsigned i) {
+    DCHECK_EQ(mine_end_, next);
+    DCHECK_LE(next, i);
+    DCHECK_LT(i, reported_errors_.length());
+    if (next < i) reported_errors_[next++] = reported_errors_[i];
+    mine_end_++;
+  }
+
+  // TODO(nikolaos): this should not be here!
+  List<Error>& reported_errors_;
+
   unsigned invalid_productions_ : 14;
   unsigned function_properties_ : 2;
-  List<Error> reported_errors_;
+  unsigned mine_begin_;
+  unsigned mine_end_;
   DuplicateFinder* duplicate_finder_;
+  // TODO(nikolaos): the rest is only needed for sanity checking...
 };
 
 
