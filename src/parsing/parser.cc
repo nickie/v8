@@ -1611,7 +1611,7 @@ Statement* Parser::ParseExportDefault(bool* ok) {
       int pos = peek_position();
       ExpressionClassifier classifier;
       Expression* expr = ParseAssignmentExpression(true, &classifier, CHECK_OK);
-      expr = ParserTraits::RewriteNonPattern(expr, &classifier, CHECK_OK);
+      expr = RewriteNonPattern(expr, &classifier, CHECK_OK);
 
       ExpectSemicolon(CHECK_OK);
       result = factory()->NewExpressionStatement(expr, pos);
@@ -2435,7 +2435,7 @@ void Parser::ParseVariableDeclarations(VariableDeclarationContext var_context,
       value = ParseAssignmentExpression(var_context != kForStatement,
                                         &classifier, ok);
       if (!*ok) return;
-      value = ParserTraits::RewriteNonPattern(value, &classifier, ok);
+      value = RewriteNonPattern(value, &classifier, ok);
       if (!*ok) return;
       variable_loc.end_pos = scanner()->location().end_pos;
 
@@ -2543,7 +2543,7 @@ Statement* Parser::ParseExpressionOrLabelledStatement(
         } else {
           expr = ParseStrongSuperCallExpression(&classifier, CHECK_OK);
         }
-        expr = ParserTraits::RewriteNonPattern(expr, &classifier, CHECK_OK);
+        expr = RewriteNonPattern(expr, &classifier, CHECK_OK);
         switch (peek()) {
           case Token::SEMICOLON:
             Consume(Token::SEMICOLON);
@@ -3657,8 +3657,7 @@ Statement* Parser::ParseForStatement(ZoneList<const AstRawString*>* labels,
         if (mode == ForEachStatement::ITERATE) {
           ExpressionClassifier classifier;
           enumerable = ParseAssignmentExpression(true, &classifier, CHECK_OK);
-          enumerable = ParserTraits::RewriteNonPattern(enumerable, &classifier,
-                                                       CHECK_OK);
+          enumerable = RewriteNonPattern(enumerable, &classifier, CHECK_OK);
         } else {
           enumerable = ParseExpression(true, CHECK_OK);
         }
@@ -3762,7 +3761,7 @@ Statement* Parser::ParseForStatement(ZoneList<const AstRawString*>* labels,
         ValidateAssignmentPattern(&classifier, CHECK_OK);
       } else {
         expression =
-            ParserTraits::RewriteNonPattern(expression, &classifier, CHECK_OK);
+            RewriteNonPattern(expression, &classifier, CHECK_OK);
       }
 
       if (is_for_each) {
@@ -3780,8 +3779,7 @@ Statement* Parser::ParseForStatement(ZoneList<const AstRawString*>* labels,
         if (mode == ForEachStatement::ITERATE) {
           ExpressionClassifier classifier;
           enumerable = ParseAssignmentExpression(true, &classifier, CHECK_OK);
-          enumerable = ParserTraits::RewriteNonPattern(enumerable, &classifier,
-                                                       CHECK_OK);
+          enumerable = RewriteNonPattern(enumerable, &classifier, CHECK_OK);
         } else {
           enumerable = ParseExpression(true, CHECK_OK);
         }
@@ -4838,7 +4836,7 @@ ClassLiteral* Parser::ParseClassLiteral(const AstRawString* name,
     block_scope->set_start_position(scanner()->location().end_pos);
     ExpressionClassifier classifier;
     extends = ParseLeftHandSideExpression(&classifier, CHECK_OK);
-    extends = ParserTraits::RewriteNonPattern(extends, &classifier, CHECK_OK);
+    extends = RewriteNonPattern(extends, &classifier, CHECK_OK);
   } else {
     block_scope->set_start_position(scanner()->location().end_pos);
   }
@@ -4864,7 +4862,7 @@ ClassLiteral* Parser::ParseClassLiteral(const AstRawString* name,
     ObjectLiteral::Property* property = ParsePropertyDefinition(
         &checker, in_class, has_extends, is_static, &is_computed_name,
         &has_seen_constructor, &classifier, &property_name, CHECK_OK);
-    property = ParserTraits::RewriteNonPatternObjectLiteralProperty(
+    property = RewriteNonPatternObjectLiteralProperty(
         property, &classifier, CHECK_OK);
 
     if (has_seen_constructor && constructor == NULL) {

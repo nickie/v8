@@ -942,7 +942,7 @@ PreParser::Statement PreParser::ParseForStatement(bool* ok) {
           ExpressionClassifier classifier;
           Expression enumerable =
               ParseAssignmentExpression(true, &classifier, CHECK_OK);
-          PreParserTraits::RewriteNonPattern(enumerable, &classifier, CHECK_OK);
+          RewriteNonPattern(enumerable, &classifier, CHECK_OK);
         } else {
           ParseExpression(true, CHECK_OK);
         }
@@ -981,7 +981,7 @@ PreParser::Statement PreParser::ParseForStatement(bool* ok) {
           ExpressionClassifier classifier;
           Expression enumerable =
               ParseAssignmentExpression(true, &classifier, CHECK_OK);
-          PreParserTraits::RewriteNonPattern(enumerable, &classifier, CHECK_OK);
+          RewriteNonPattern(enumerable, &classifier, CHECK_OK);
         } else {
           ParseExpression(true, CHECK_OK);
         }
