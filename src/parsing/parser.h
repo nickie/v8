@@ -814,8 +814,9 @@ class Parser : public ParserBase<ParserTraits> {
         const DeclarationParsingResult::Declaration* declaration,
         ZoneList<const AstRawString*>* names, bool* ok);
 
-    static void RewriteDestructuringAssignment(
-        Parser* parser, RewritableAssignmentExpression* expr, Scope* Scope);
+    static void RewriteDestructuringAssignment(Parser* parser,
+                                               RewritableExpression* expr,
+                                               Scope* Scope);
 
     static Expression* RewriteDestructuringAssignment(Parser* parser,
                                                       Assignment* assignment,

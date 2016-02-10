@@ -3069,8 +3069,7 @@ VectorSlotPair AstGraphBuilder::CreateVectorSlotPair(
 }
 
 
-void AstGraphBuilder::VisitRewritableAssignmentExpression(
-    RewritableAssignmentExpression* node) {
+void AstGraphBuilder::VisitRewritableExpression(RewritableExpression* node) {
   Visit(node->expression());
 }
 

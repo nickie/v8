@@ -2142,7 +2142,7 @@ ParserBase<Traits>::ParseAssignmentExpression(bool accept_IN, int flags,
   ExpressionT result = factory()->NewAssignment(op, expression, right, pos);
 
   if (is_destructuring_assignment) {
-    result = factory()->NewRewritableAssignmentExpression(result);
+    result = factory()->NewRewritableExpression(result);
     Traits::QueueDestructuringAssignmentForRewriting(result);
   }
 

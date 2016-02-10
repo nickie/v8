@@ -91,7 +91,7 @@ namespace internal {
   V(CaseClause)                 \
   V(EmptyParentheses)           \
   V(DoExpression)               \
-  V(RewritableAssignmentExpression)
+  V(RewritableExpression)
 
 #define AST_NODE_LIST(V)                        \
   DECLARATION_NODE_LIST(V)                      \
@@ -2546,9 +2546,9 @@ class Assignment final : public Expression {
 };
 
 
-class RewritableAssignmentExpression : public Expression {
+class RewritableExpression : public Expression {
  public:
-  DECLARE_NODE_TYPE(RewritableAssignmentExpression)
+  DECLARE_NODE_TYPE(RewritableExpression)
 
   Expression* expression() { return expr_; }
   bool is_rewritten() const { return is_rewritten_; }
@@ -2565,7 +2565,7 @@ class RewritableAssignmentExpression : public Expression {
   static int num_ids() { return parent_num_ids(); }
 
  protected:
-  RewritableAssignmentExpression(Zone* zone, Expression* expression)
+  RewritableExpression(Zone* zone, Expression* expression)
       : Expression(zone, expression->position()),
         is_rewritten_(false),
         expr_(expression) {}
@@ -3424,12 +3424,10 @@ class AstNodeFactory final BASE_EMBEDDED {
         local_zone_, condition, then_expression, else_expression, position);
   }
 
-  RewritableAssignmentExpression* NewRewritableAssignmentExpression(
-      Expression* expression) {
+  RewritableExpression* NewRewritableExpression(Expression* expression) {
     DCHECK_NOT_NULL(expression);
     DCHECK(expression->IsAssignment());
-    return new (local_zone_)
-        RewritableAssignmentExpression(local_zone_, expression);
+    return new (local_zone_) RewritableExpression(local_zone_, expression);
   }
 
   Assignment* NewAssignment(Token::Value op,

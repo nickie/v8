@@ -398,8 +398,8 @@ void AstExpressionRewriter::VisitDoExpression(DoExpression* node) {
 }
 
 
-void AstExpressionRewriter::VisitRewritableAssignmentExpression(
-    RewritableAssignmentExpression* node) {
+void AstExpressionRewriter::VisitRewritableExpression(
+    RewritableExpression* node) {
   REWRITE_THIS(node);
   AST_REWRITE_PROPERTY(Expression, node, expression);
 }

@@ -4496,8 +4496,7 @@ class InitializerRewriter : public AstExpressionVisitor {
 
  private:
   void VisitExpression(Expression* expr) {
-    RewritableAssignmentExpression* to_rewrite =
-        expr->AsRewritableAssignmentExpression();
+    RewritableExpression* to_rewrite = expr->AsRewritableExpression();
     if (to_rewrite == nullptr || to_rewrite->is_rewritten()) return;
 
     Parser::PatternRewriter::RewriteDestructuringAssignment(parser_, to_rewrite,
@@ -5582,8 +5581,8 @@ void Parser::RewriteDestructuringAssignments() {
     // Rewrite list in reverse, so that nested assignment patterns are rewritten
     // correctly.
     const DestructuringAssignment& pair = assignments.at(i);
-    RewritableAssignmentExpression* to_rewrite =
-        pair.assignment->AsRewritableAssignmentExpression();
+    RewritableExpression* to_rewrite =
+        pair.assignment->AsRewritableExpression();
     DCHECK_NOT_NULL(to_rewrite);
     if (!to_rewrite->is_rewritten()) {
       PatternRewriter::RewriteDestructuringAssignment(this, to_rewrite,
@@ -5713,7 +5712,7 @@ Expression* Parser::RewriteSpreads(ArrayLiteral* lit) {
 
 
 void ParserTraits::QueueDestructuringAssignmentForRewriting(Expression* expr) {
-  DCHECK(expr->IsRewritableAssignmentExpression());
+  DCHECK(expr->IsRewritableExpression());
   parser_->function_state_->AddDestructuringAssignment(
       Parser::DestructuringAssignment(expr, parser_->scope_));
 }

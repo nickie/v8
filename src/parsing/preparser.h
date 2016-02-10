@@ -485,8 +485,7 @@ class PreParserFactory {
                                           PreParserExpression right, int pos) {
     return PreParserExpression::Default();
   }
-  PreParserExpression NewRewritableAssignmentExpression(
-      PreParserExpression expression) {
+  PreParserExpression NewRewritableExpression(PreParserExpression expression) {
     return expression;
   }
   PreParserExpression NewAssignment(Token::Value op,
