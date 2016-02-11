@@ -5718,6 +5718,12 @@ void ParserTraits::QueueDestructuringAssignmentForRewriting(Expression* expr) {
 }
 
 
+void ParserTraits::QueueNonPatternForRewriting(Expression* expr) {
+  DCHECK(expr->IsRewritableExpression());
+  // nickie !!! parser_->function_state_->AddNonPatternForRewriting(expr);
+}
+
+
 void ParserTraits::SetFunctionNameFromPropertyName(
     ObjectLiteralProperty* property, const AstRawString* name) {
   Expression* value = property->value();

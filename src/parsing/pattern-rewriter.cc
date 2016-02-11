@@ -325,8 +325,9 @@ Variable* Parser::PatternRewriter::CreateTempVar(Expression* value) {
 
 void Parser::PatternRewriter::VisitRewritableExpression(
     RewritableExpression* node) {
-  if (!IsAssignmentContext()) {
-    // Mark the assignment as rewritten to prevent redundant rewriting, and
+  // If this is not a destructive assignment...
+  if (!IsAssignmentContext() || !node->expression()->IsAssignment()) {
+    // Mark the node as rewritten to prevent redundant rewriting, and
     // perform BindingPattern rewriting
     DCHECK(!node->is_rewritten());
     node->Rewrite(node->expression());

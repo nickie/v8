@@ -1575,8 +1575,14 @@ typename ParserBase<Traits>::ExpressionT ParserBase<Traits>::ParseArrayLiteral(
   // Update the scope information before the pre-parsing bailout.
   int literal_index = function_state_->NextMaterializedLiteralIndex();
 
-  return factory()->NewArrayLiteral(values, first_spread_index, literal_index,
-                                    is_strong(language_mode()), pos);
+  ExpressionT result =
+      factory()->NewArrayLiteral(values, first_spread_index, literal_index,
+                                 is_strong(language_mode()), pos);
+  if (first_spread_index >= 0) {
+    result = factory()->NewRewritableExpression(result);
+    Traits::QueueNonPatternForRewriting(result);
+  }
+  return result;
 }
 
 
