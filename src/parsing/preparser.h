@@ -941,6 +941,7 @@ class PreParserTraits {
   V8_INLINE ZoneList<typename Type::ExpressionClassifier::Error>*
   GetReportedErrorList() const;
   V8_INLINE Zone* zone() const;
+  V8_INLINE ZoneList<PreParserExpression>* GetNonPatternList() const;
 
   inline PreParserExpression RewriteYieldStar(
       PreParserExpression generator, PreParserExpression expr, int pos);
@@ -1150,6 +1151,11 @@ PreParserTraits::GetReportedErrorList() const {
 
 Zone* PreParserTraits::zone() const {
   return pre_parser_->function_state_->scope()->zone();
+}
+
+
+ZoneList<PreParserExpression>* PreParserTraits::GetNonPatternList() const {
+  return pre_parser_->function_state_->non_patterns_to_rewrite();
 }
 
 

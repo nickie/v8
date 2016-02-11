@@ -243,6 +243,10 @@ class ParserBase : public Traits {
       return destructuring_assignments_to_rewrite_;
     }
 
+    ZoneList<ExpressionT>* non_patterns_to_rewrite() {
+      return &non_patterns_to_rewrite_;
+    }
+
    private:
     void AddDestructuringAssignment(DestructuringAssignment pair) {
       destructuring_assignments_to_rewrite_.Add(pair, (*scope_stack_)->zone());

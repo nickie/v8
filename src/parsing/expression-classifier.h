@@ -95,6 +95,7 @@ class ExpressionClassifier {
         function_properties_(0),
         duplicate_finder_(nullptr) {
     reported_errors_begin_ = reported_errors_end_ = reported_errors_->length();
+    non_pattern_begin_ = t->GetNonPatternList()->length();
 #ifdef NICKIE_DEBUG
     fprintf(stderr, "create classifier %p %u- list %p at %s:%d\n", this,
             reported_errors_begin_, reported_errors_, filename, line);
@@ -113,6 +114,7 @@ class ExpressionClassifier {
         function_properties_(0),
         duplicate_finder_(duplicate_finder) {
     reported_errors_begin_ = reported_errors_end_ = reported_errors_->length();
+    non_pattern_begin_ = t->GetNonPatternList()->length();
 #ifdef NICKIE_DEBUG
     fprintf(stderr, "create classifier %p %u- list %p at %s:%d\n", this,
             reported_errors_begin_, reported_errors_, filename, line);
@@ -424,6 +426,8 @@ class ExpressionClassifier {
     DCHECK_EQ(reported_errors_begin_, reported_errors_end_);
   }
 
+  V8_INLINE int GetNonPatternBegin() const { return non_pattern_begin_; }
+
  private:
   V8_INLINE Error& reported_error(ErrorKind kind) const {
     if (invalid_productions_ & (1 << kind)) {
@@ -465,6 +469,7 @@ class ExpressionClassifier {
 
   int reported_errors_begin_;
   int reported_errors_end_;
+  int non_pattern_begin_;
 
   DuplicateFinder* duplicate_finder_;
 };

@@ -664,6 +664,8 @@ class ParserTraits {
   GetReportedErrorList() const;
   V8_INLINE Zone* zone() const;
 
+  V8_INLINE ZoneList<Expression*>* GetNonPatternList() const;
+
   Expression* RewriteYieldStar(
       Expression* generator, Expression* expression, int pos);
 

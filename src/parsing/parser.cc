@@ -5512,6 +5512,11 @@ Zone* ParserTraits::zone() const {
 }
 
 
+ZoneList<Expression*>* ParserTraits::GetNonPatternList() const {
+  return parser_->function_state_->non_patterns_to_rewrite();
+}
+
+
 class NonPatternRewriter : public AstExpressionRewriter {
  public:
   NonPatternRewriter(uintptr_t stack_limit, Parser* parser)
@@ -5549,21 +5554,27 @@ class NonPatternRewriter : public AstExpressionRewriter {
 };
 
 
-Expression* Parser::RewriteNonPattern(Expression* expr,
-                                      const ExpressionClassifier* classifier,
-                                      bool* ok) {
+Expression* Parser::RewriteNonPattern(
+    Expression* expr, const ExpressionClassifier* classifier, bool* ok) {
   ValidateExpression(classifier, ok);
   if (!*ok) return expr;
-  NonPatternRewriter rewriter(stack_limit_, this);
-  Expression* result = reinterpret_cast<Expression*>(rewriter.Rewrite(expr));
-  DCHECK_NOT_NULL(result);
-  return result;
+  auto non_patterns_to_rewrite = function_state_->non_patterns_to_rewrite();
+  int begin = classifier->GetNonPatternBegin();
+  int end = non_patterns_to_rewrite->length();
+  if (begin < end) {
+    NonPatternRewriter rewriter(stack_limit_, this);
+    for (int i = begin; i < end; i++)
+      rewriter.Rewrite(non_patterns_to_rewrite->at(i));
+    non_patterns_to_rewrite->Rewind(begin);
+  }
+  return expr;
 }
 
 
 ObjectLiteralProperty* Parser::RewriteNonPatternObjectLiteralProperty(
     ObjectLiteralProperty* property, const ExpressionClassifier* classifier,
     bool* ok) {
+  // TODO(nikolaos): see if this is needed
   if (property != nullptr) {
     // Do not rewrite (computed) key expressions
     Expression* value = RewriteNonPattern(property->value(), classifier, ok);
@@ -5574,9 +5585,9 @@ ObjectLiteralProperty* Parser::RewriteNonPatternObjectLiteralProperty(
 
 
 void Parser::RewriteDestructuringAssignments() {
-  FunctionState* func = function_state_;
   if (!allow_harmony_destructuring_assignment()) return;
-  const auto& assignments = func->destructuring_assignments_to_rewrite();
+  const auto& assignments =
+      function_state_->destructuring_assignments_to_rewrite();
   for (int i = assignments.length() - 1; i >= 0; --i) {
     // Rewrite list in reverse, so that nested assignment patterns are rewritten
     // correctly.
