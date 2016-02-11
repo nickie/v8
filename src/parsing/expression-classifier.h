@@ -62,8 +62,6 @@ class ExpressionClassifier {
     const char* arg;
   };
 
-  typedef int size_type;
-
   enum TargetProduction : unsigned {
 #define DEFINE_PRODUCTION(NAME, CODE) NAME = 1 << CODE,
     ERROR_CODES(DEFINE_PRODUCTION)
@@ -96,10 +94,10 @@ class ExpressionClassifier {
         invalid_productions_(0),
         function_properties_(0),
         duplicate_finder_(nullptr) {
-    mine_begin_ = mine_end_ = reported_errors_->length();
+    reported_errors_begin_ = reported_errors_end_ = reported_errors_->length();
 #ifdef NICKIE_DEBUG
     fprintf(stderr, "create classifier %p %u- list %p at %s:%d\n", this,
-            mine_begin_, reported_errors_, filename, line);
+            reported_errors_begin_, reported_errors_, filename, line);
 #endif
   }
 
@@ -114,10 +112,10 @@ class ExpressionClassifier {
         invalid_productions_(0),
         function_properties_(0),
         duplicate_finder_(duplicate_finder) {
-    mine_begin_ = mine_end_ = reported_errors_->length();
+    reported_errors_begin_ = reported_errors_end_ = reported_errors_->length();
 #ifdef NICKIE_DEBUG
     fprintf(stderr, "create classifier %p %u- list %p at %s:%d\n", this,
-            mine_begin_, reported_errors_, filename, line);
+            reported_errors_begin_, reported_errors_, filename, line);
 #endif
   }
 
@@ -348,17 +346,17 @@ class ExpressionClassifier {
                   unsigned productions = StandardProductions) {
 #ifdef NICKIE_DEBUG
     fprintf(stderr, "accumulate classifier %p %u-%u in %p %u-%u\n",
-            &inner, inner.mine_begin_, inner.mine_end_,
-            this, mine_begin_, mine_end_);
+            &inner, inner.reported_errors_begin_, inner.reported_errors_end_,
+            this, reported_errors_begin_, reported_errors_end_);
 #endif
     DCHECK_EQ(inner.reported_errors_, reported_errors_);
-    DCHECK_EQ(inner.mine_begin_, mine_end_);
-    DCHECK_EQ(inner.mine_end_, reported_errors_->length());
+    DCHECK_EQ(inner.reported_errors_begin_, reported_errors_end_);
+    DCHECK_EQ(inner.reported_errors_end_, reported_errors_->length());
     // Propagate errors from inner, but don't overwrite already recorded
     // errors.
     unsigned non_arrow_inner_invalid_productions =
         inner.invalid_productions_ & ~ArrowFormalParametersProduction;
-    size_type next = inner.mine_begin_;
+    int next = inner.reported_errors_begin_;
     if (non_arrow_inner_invalid_productions) {
       unsigned non_arrow_productions =
           productions & ~ArrowFormalParametersProduction;
@@ -379,8 +377,9 @@ class ExpressionClassifier {
 
       if (errors != 0) {
         invalid_productions_ |= errors;
-        size_type arrow_index = inner.mine_end_;
-        for (size_type i = inner.mine_begin_; i < inner.mine_end_; i++) {
+        int arrow_index = inner.reported_errors_end_;
+        for (int i = inner.reported_errors_begin_;
+             i < inner.reported_errors_end_; i++) {
           if (reported_errors_->at(i).kind == kUnusedError ||
               reported_errors_->at(i).kind == kArrowFormalParametersProduction)
             continue;
@@ -398,36 +397,37 @@ class ExpressionClassifier {
             }
           }
         }
-        if (arrow_index < inner.mine_end_) {
+        if (arrow_index < inner.reported_errors_end_) {
           Add(reported_errors_->at(arrow_index));
           reported_errors_->at(next++).kind = kArrowFormalParametersProduction;
         }
       }
     }
-    DCHECK_EQ(mine_end_, next);
+    DCHECK_EQ(reported_errors_end_, next);
     reported_errors_->Rewind(next);
-    inner.mine_begin_ = inner.mine_end_ = next;
+    inner.reported_errors_begin_ = inner.reported_errors_end_ = next;
 #ifdef NICKIE_DEBUG
-    fprintf(stderr, "now classifier %p %u-%u\n", this, mine_begin_, mine_end_);
+    fprintf(stderr, "now classifier %p %u-%u\n", this,
+            reported_errors_begin_, reported_errors_end_);
 #endif
   }
 
   V8_INLINE void Discard() {
 #ifdef NICKIE_DEBUG
     fprintf(stderr, "discard classifier %p %u-%u\n", this,
-            mine_begin_, mine_end_);
+            reported_errors_begin_, reported_errors_end_);
 #endif
-    if (mine_end_ == reported_errors_->length()) {
-      reported_errors_->Rewind(mine_begin_);
-      mine_end_ = mine_begin_;
+    if (reported_errors_end_ == reported_errors_->length()) {
+      reported_errors_->Rewind(reported_errors_begin_);
+      reported_errors_end_ = reported_errors_begin_;
     }
-    DCHECK_EQ(mine_begin_, mine_end_);
+    DCHECK_EQ(reported_errors_begin_, reported_errors_end_);
   }
 
  private:
   V8_INLINE Error& reported_error(ErrorKind kind) const {
     if (invalid_productions_ & (1 << kind)) {
-      for (size_type i = mine_begin_; i < mine_end_; i++) {
+      for (int i = reported_errors_begin_; i < reported_errors_end_; i++) {
         if (reported_errors_->at(i).kind == kind)
           return reported_errors_->at(i);
       }
@@ -440,21 +440,21 @@ class ExpressionClassifier {
   }
 
   V8_INLINE void Add(const Error& e) {
-    DCHECK_EQ(mine_end_, reported_errors_->length());
+    DCHECK_EQ(reported_errors_end_, reported_errors_->length());
     reported_errors_->Add(e, zone_);
-    mine_end_++;
+    reported_errors_end_++;
 #ifdef NICKIE_DEBUG
     fprintf(stderr, "adding, now classifier %p %u-%u\n",
-            this, mine_begin_, mine_end_);
+            this, reported_errors_begin_, reported_errors_end_);
 #endif
   }
 
-  V8_INLINE void Move(size_type next, size_type i) {
-    DCHECK_EQ(mine_end_, next);
+  V8_INLINE void Move(int next, int i) {
+    DCHECK_EQ(reported_errors_end_, next);
     DCHECK_LE(next, i);
     DCHECK_LT(i, reported_errors_->length());
     if (next < i) reported_errors_->at(next++) = reported_errors_->at(i);
-    mine_end_++;
+    reported_errors_end_++;
   }
 
   ZoneList<Error>* reported_errors_;
@@ -463,8 +463,8 @@ class ExpressionClassifier {
   unsigned invalid_productions_ : 14;
   unsigned function_properties_ : 2;
 
-  size_type mine_begin_;
-  size_type mine_end_;
+  int reported_errors_begin_;
+  int reported_errors_end_;
 
   DuplicateFinder* duplicate_finder_;
 };
