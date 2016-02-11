@@ -253,6 +253,10 @@ class ParserBase : public Traits {
 
     V8_INLINE Scope* scope() { return *scope_stack_; }
 
+    void AddNonPatternForRewriting(ExpressionT expr) {
+      non_patterns_to_rewrite_.Add(expr, (*scope_stack_)->zone());
+    }
+
    private:
     // Used to assign an index to each literal that needs materialization in
     // the function.  Includes regexp literals, and boilerplate for object and
@@ -287,6 +291,9 @@ class ParserBase : public Traits {
     void RewriteDestructuringAssignments();
 
     ZoneList<typename ExpressionClassifier::Error> reported_errors_;
+    ZoneList<ExpressionT> non_patterns_to_rewrite_;
+
+    void RewriteNonPatterns(int first);
 
     typename Traits::Type::Factory* factory_;
 
@@ -972,6 +979,7 @@ ParserBase<Traits>::FunctionState::FunctionState(
       outer_scope_(*scope_stack),
       destructuring_assignments_to_rewrite_(16, scope->zone()),
       reported_errors_(16, scope->zone()),
+      non_patterns_to_rewrite_(0, scope->zone()),
       factory_(factory) {
   *scope_stack_ = scope;
   *function_state_stack = this;

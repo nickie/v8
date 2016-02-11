@@ -5720,7 +5720,7 @@ void ParserTraits::QueueDestructuringAssignmentForRewriting(Expression* expr) {
 
 void ParserTraits::QueueNonPatternForRewriting(Expression* expr) {
   DCHECK(expr->IsRewritableExpression());
-  // nickie !!! parser_->function_state_->AddNonPatternForRewriting(expr);
+  parser_->function_state_->AddNonPatternForRewriting(expr);
 }
 
 
