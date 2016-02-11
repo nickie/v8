@@ -587,6 +587,9 @@ class PreParserTraits {
 
     typedef int AstProperties;
 
+    typedef v8::internal::ExpressionClassifier<PreParserTraits>
+        ExpressionClassifier;
+
     // Return types for traversing functions.
     typedef PreParserIdentifier Identifier;
     typedef PreParserExpression Expression;
@@ -883,7 +886,7 @@ class PreParserTraits {
     ++parameters->arity;
   }
   void DeclareFormalParameter(Scope* scope, PreParserIdentifier parameter,
-                              ExpressionClassifier* classifier) {
+                              Type::ExpressionClassifier* classifier) {
     if (!classifier->is_simple_parameter_list()) {
       scope->SetHasNonSimpleParameters();
     }
@@ -929,11 +932,15 @@ class PreParserTraits {
                                         PreParserExpression) {}
 
   inline PreParserExpression RewriteNonPattern(
-      PreParserExpression expr, const ExpressionClassifier* classifier,
+      PreParserExpression expr, const Type::ExpressionClassifier* classifier,
       bool* ok);
   inline PreParserExpression RewriteNonPatternObjectLiteralProperty(
-      PreParserExpression property, const ExpressionClassifier* classifier,
-      bool* ok);
+      PreParserExpression property,
+      const Type::ExpressionClassifier* classifier, bool* ok);
+
+  V8_INLINE ZoneList<typename Type::ExpressionClassifier::Error>*
+  GetReportedErrorList() const;
+  V8_INLINE Zone* zone() const;
 
   inline PreParserExpression RewriteYieldStar(
       PreParserExpression generator, PreParserExpression expr, int pos);
@@ -1120,7 +1127,7 @@ PreParserExpression PreParserTraits::ParseDoExpression(bool* ok) {
 
 
 PreParserExpression PreParserTraits::RewriteNonPattern(
-    PreParserExpression expr, const ExpressionClassifier* classifier,
+    PreParserExpression expr, const Type::ExpressionClassifier* classifier,
     bool* ok) {
   pre_parser_->ValidateExpression(classifier, ok);
   return expr;
@@ -1128,10 +1135,21 @@ PreParserExpression PreParserTraits::RewriteNonPattern(
 
 
 PreParserExpression PreParserTraits::RewriteNonPatternObjectLiteralProperty(
-    PreParserExpression property, const ExpressionClassifier* classifier,
+    PreParserExpression property, const Type::ExpressionClassifier* classifier,
     bool* ok) {
   pre_parser_->ValidateExpression(classifier, ok);
   return property;
+}
+
+
+ZoneList<typename PreParserTraits::Type::ExpressionClassifier::Error>*
+PreParserTraits::GetReportedErrorList() const {
+  return pre_parser_->function_state_->GetReportedErrorList();
+}
+
+
+Zone* PreParserTraits::zone() const {
+  return pre_parser_->function_state_->scope()->zone();
 }
 
 

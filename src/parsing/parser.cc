@@ -3760,8 +3760,7 @@ Statement* Parser::ParseForStatement(ZoneList<const AstRawString*>* labels,
       if (is_destructuring) {
         ValidateAssignmentPattern(&classifier, CHECK_OK);
       } else {
-        expression =
-            RewriteNonPattern(expression, &classifier, CHECK_OK);
+        expression = RewriteNonPattern(expression, &classifier, CHECK_OK);
       }
 
       if (is_for_each) {
@@ -4065,9 +4064,9 @@ void ParserTraits::ParseArrowFunctionFormalParameterList(
   if (!*ok) return;
 
 #ifdef NICKIE_DEBUG
-  ExpressionClassifier classifier(__FILE__, __LINE__, parser_);
+  Type::ExpressionClassifier classifier(__FILE__, __LINE__, parser_);
 #else
-  ExpressionClassifier classifier(parser_);
+  Type::ExpressionClassifier classifier(parser_);
 #endif
   if (!parameters->is_simple) {
     classifier.RecordNonSimpleParameter();
@@ -4361,7 +4360,7 @@ FunctionLiteral* Parser::ParseFunctionLiteral(
       ParserTraits::RewriteDestructuringAssignments();
     }
     has_duplicate_parameters =
-      !formals_classifier.is_valid_formal_parameter_list_without_duplicates();
+        !formals_classifier.is_valid_formal_parameter_list_without_duplicates();
   }
 
   FunctionLiteral::ParameterFlag duplicate_parameters =
@@ -4867,8 +4866,8 @@ ClassLiteral* Parser::ParseClassLiteral(const AstRawString* name,
     ObjectLiteral::Property* property = ParsePropertyDefinition(
         &checker, in_class, has_extends, is_static, &is_computed_name,
         &has_seen_constructor, &classifier, &property_name, CHECK_OK);
-    property = RewriteNonPatternObjectLiteralProperty(
-        property, &classifier, CHECK_OK);
+    property =
+        RewriteNonPatternObjectLiteralProperty(property, &classifier, CHECK_OK);
 
     if (has_seen_constructor && constructor == NULL) {
       constructor = GetPropertyValue(property)->AsFunctionLiteral();
@@ -5491,16 +5490,26 @@ void ParserTraits::RewriteDestructuringAssignments() {
 
 
 Expression* ParserTraits::RewriteNonPattern(
-    Expression* expr, const ExpressionClassifier* classifier, bool* ok) {
+    Expression* expr, const Type::ExpressionClassifier* classifier, bool* ok) {
   return parser_->RewriteNonPattern(expr, classifier, ok);
 }
 
 
 ObjectLiteralProperty* ParserTraits::RewriteNonPatternObjectLiteralProperty(
-    ObjectLiteralProperty* property, const ExpressionClassifier* classifier,
-    bool* ok) {
+    ObjectLiteralProperty* property,
+    const Type::ExpressionClassifier* classifier, bool* ok) {
   return parser_->RewriteNonPatternObjectLiteralProperty(property, classifier,
                                                          ok);
+}
+
+ZoneList<typename ParserTraits::Type::ExpressionClassifier::Error>*
+ParserTraits::GetReportedErrorList() const {
+  return parser_->function_state_->GetReportedErrorList();
+}
+
+
+Zone* ParserTraits::zone() const {
+  return parser_->function_state_->scope()->zone();
 }
 
 

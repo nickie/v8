@@ -335,6 +335,9 @@ class ParserTraits {
 
     typedef v8::internal::AstProperties AstProperties;
 
+    typedef v8::internal::ExpressionClassifier<ParserTraits>
+        ExpressionClassifier;
+
     // Return types for traversing functions.
     typedef const AstRawString* Identifier;
     typedef v8::internal::Expression* Expression;
@@ -547,7 +550,7 @@ class ParserTraits {
                                     int initializer_end_position, bool is_rest);
   V8_INLINE void DeclareFormalParameter(
       Scope* scope, const ParserFormalParameters::Parameter& parameter,
-      ExpressionClassifier* classifier);
+      Type::ExpressionClassifier* classifier);
   void ParseArrowFunctionFormalParameters(ParserFormalParameters* parameters,
                                           Expression* params,
                                           const Scanner::Location& params_loc,
@@ -651,10 +654,14 @@ class ParserTraits {
 
   // Rewrite expressions that are not used as patterns
   V8_INLINE Expression* RewriteNonPattern(
-      Expression* expr, const ExpressionClassifier* classifier, bool* ok);
+      Expression* expr, const Type::ExpressionClassifier* classifier, bool* ok);
   V8_INLINE ObjectLiteralProperty* RewriteNonPatternObjectLiteralProperty(
-      ObjectLiteralProperty* property, const ExpressionClassifier* classifier,
-      bool* ok);
+      ObjectLiteralProperty* property,
+      const Type::ExpressionClassifier* classifier, bool* ok);
+
+  V8_INLINE ZoneList<typename Type::ExpressionClassifier::Error>*
+  GetReportedErrorList() const;
+  V8_INLINE Zone* zone() const;
 
   Expression* RewriteYieldStar(
       Expression* generator, Expression* expression, int pos);
@@ -1178,7 +1185,7 @@ void ParserTraits::AddFormalParameter(ParserFormalParameters* parameters,
 
 void ParserTraits::DeclareFormalParameter(
     Scope* scope, const ParserFormalParameters::Parameter& parameter,
-    ExpressionClassifier* classifier) {
+    Type::ExpressionClassifier* classifier) {
   bool is_duplicate = false;
   bool is_simple = classifier->is_simple_parameter_list();
   auto name = is_simple || parameter.is_rest

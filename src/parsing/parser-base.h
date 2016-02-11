@@ -88,6 +88,7 @@ class ParserBase : public Traits {
   typedef typename Traits::Type::Literal LiteralT;
   typedef typename Traits::Type::ObjectLiteralProperty ObjectLiteralPropertyT;
   typedef typename Traits::Type::StatementList StatementListT;
+  typedef typename Traits::Type::ExpressionClassifier ExpressionClassifier;
 
   ParserBase(Zone* zone, Scanner* scanner, uintptr_t stack_limit,
              v8::Extension* extension, AstValueFactory* ast_value_factory,
@@ -238,7 +239,7 @@ class ParserBase : public Traits {
     typename Traits::Type::Factory* factory() { return factory_; }
 
     const ZoneList<DestructuringAssignment>&
-        destructuring_assignments_to_rewrite() const {
+    destructuring_assignments_to_rewrite() const {
       return destructuring_assignments_to_rewrite_;
     }
 
@@ -246,8 +247,8 @@ class ParserBase : public Traits {
       destructuring_assignments_to_rewrite_.Add(pair, (*scope_stack_)->zone());
     }
 
-    ZoneList<ExpressionClassifier::Error>& GetReportedErrorList() {
-      return reported_errors_;
+    ZoneList<typename ExpressionClassifier::Error>* GetReportedErrorList() {
+      return &reported_errors_;
     }
 
     V8_INLINE Scope* scope() { return *scope_stack_; }
@@ -285,7 +286,7 @@ class ParserBase : public Traits {
 
     void RewriteDestructuringAssignments();
 
-    ZoneList<ExpressionClassifier::Error> reported_errors_;
+    ZoneList<typename ExpressionClassifier::Error> reported_errors_;
 
     typename Traits::Type::Factory* factory_;
 
@@ -575,8 +576,8 @@ class ParserBase : public Traits {
       Scanner::Location location, Token::Value token,
       MessageTemplate::Template message = MessageTemplate::kUnexpectedToken);
 
-
-  void ReportClassifierError(const ExpressionClassifier::Error& error) {
+  void ReportClassifierError(
+      const typename ExpressionClassifier::Error& error) {
     Traits::ReportMessageAt(error.location, error.message, error.arg,
                             error.type);
   }
@@ -654,7 +655,7 @@ class ParserBase : public Traits {
       // neither a valid binding pattern nor a valid parenthesized formal
       // parameter list, show the "arrow formal parameters" error if the formals
       // started with a parenthesis, and the binding pattern error otherwise.
-      const ExpressionClassifier::Error& error =
+      const typename ExpressionClassifier::Error& error =
           parenthesized_formals ? classifier->arrow_formal_parameters_error()
                                 : classifier->binding_pattern_error();
       ReportClassifierError(error);
@@ -676,7 +677,7 @@ class ParserBase : public Traits {
     classifier->RecordExpressionError(scanner()->peek_location(), message, arg);
   }
 
-  ExpressionClassifier::Error BindingPatternUnexpectedToken() {
+  typename ExpressionClassifier::Error BindingPatternUnexpectedToken() {
     MessageTemplate::Template message = MessageTemplate::kUnexpectedToken;
     const char* arg;
     GetUnexpectedTokenMessage(peek(), &message, &arg);
@@ -684,8 +685,9 @@ class ParserBase : public Traits {
                                                      message, arg);
   }
 
-  void BindingPatternUnexpectedToken(ExpressionClassifier* classifier,
-                                     const ExpressionClassifier::Error& e) {
+  void BindingPatternUnexpectedToken(
+      ExpressionClassifier* classifier,
+      const typename ExpressionClassifier::Error& e) {
     classifier->RecordBindingPatternError(e);
   }
 
@@ -1995,7 +1997,7 @@ ParserBase<Traits>::ParseAssignmentExpression(bool accept_IN, int flags,
   ExpressionT expression = this->ParseConditionalExpression(
       accept_IN, &arrow_formals_classifier, CHECK_OK);
   if (peek() == Token::ARROW) {
-    ExpressionClassifier::Error e = BindingPatternUnexpectedToken();
+    typename ExpressionClassifier::Error e = BindingPatternUnexpectedToken();
     ValidateArrowFormalParameters(&arrow_formals_classifier, expression,
                                   parenthesized_formals, CHECK_OK);
     Scanner::Location loc(lhs_beg_pos, scanner()->location().end_pos);
@@ -3403,46 +3405,6 @@ void ParserBase<Traits>::ClassLiteralChecker::CheckProperty(
     has_seen_constructor_ = true;
     return;
   }
-}
-
-
-// TODO(nikolaos): This does not belong here, let's just try and see...
-
-template <typename Traits>
-ExpressionClassifier::ExpressionClassifier(
-#ifdef NICKIE_DEBUG
-                                           const char *filename, int line,
-#endif
-                                           const ParserBase<Traits>* p)
-    : reported_errors_(p->function_state_->GetReportedErrorList()),
-      zone_(p->function_state_->scope()->zone()),
-      invalid_productions_(0),
-      function_properties_(0),
-      duplicate_finder_(nullptr) {
-  mine_begin_ = mine_end_ = reported_errors_.length();
-#ifdef NICKIE_DEBUG
-  fprintf(stderr, "create classifier %p %u- list %p at %s:%d\n", this,
-          mine_begin_, &reported_errors_, filename, line);
-#endif
-}
-
-template <typename Traits>
-ExpressionClassifier::ExpressionClassifier(
-#ifdef NICKIE_DEBUG
-                                           const char *filename, int line,
-#endif
-                                           const ParserBase<Traits>* p,
-                                           DuplicateFinder* duplicate_finder)
-    : reported_errors_(p->function_state_->GetReportedErrorList()),
-      zone_(p->function_state_->scope()->zone()),
-      invalid_productions_(0),
-      function_properties_(0),
-      duplicate_finder_(duplicate_finder) {
-  mine_begin_ = mine_end_ = reported_errors_.length();
-#ifdef NICKIE_DEBUG
-  fprintf(stderr, "create classifier %p %u- list %p at %s:%d\n", this,
-          mine_begin_, &reported_errors_, filename, line);
-#endif
 }
 
 
