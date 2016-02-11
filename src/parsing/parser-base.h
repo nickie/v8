@@ -243,9 +243,12 @@ class ParserBase : public Traits {
       return destructuring_assignments_to_rewrite_;
     }
 
+   private:
     void AddDestructuringAssignment(DestructuringAssignment pair) {
       destructuring_assignments_to_rewrite_.Add(pair, (*scope_stack_)->zone());
     }
+
+    void RewriteDestructuringAssignments();
 
     ZoneList<typename ExpressionClassifier::Error>* GetReportedErrorList() {
       return &reported_errors_;
@@ -257,7 +260,8 @@ class ParserBase : public Traits {
       non_patterns_to_rewrite_.Add(expr, (*scope_stack_)->zone());
     }
 
-   private:
+    void RewriteNonPatterns(int first);
+
     // Used to assign an index to each literal that needs materialization in
     // the function.  Includes regexp literals, and boilerplate for object and
     // array literals.
@@ -287,17 +291,13 @@ class ParserBase : public Traits {
     Scope* outer_scope_;
 
     ZoneList<DestructuringAssignment> destructuring_assignments_to_rewrite_;
-
-    void RewriteDestructuringAssignments();
-
     ZoneList<typename ExpressionClassifier::Error> reported_errors_;
     ZoneList<ExpressionT> non_patterns_to_rewrite_;
-
-    void RewriteNonPatterns(int first);
 
     typename Traits::Type::Factory* factory_;
 
     friend class ParserTraits;
+    friend class PreParserTraits;
     friend class Checkpoint;
   };
 
