@@ -5489,14 +5489,14 @@ void ParserTraits::RewriteDestructuringAssignments() {
 
 
 Expression* ParserTraits::RewriteNonPattern(
-    Expression* expr, const Type::ExpressionClassifier* classifier, bool* ok) {
+    Expression* expr, Type::ExpressionClassifier* classifier, bool* ok) {
   return parser_->RewriteNonPattern(expr, classifier, ok);
 }
 
 
 ObjectLiteralProperty* ParserTraits::RewriteNonPatternObjectLiteralProperty(
-    ObjectLiteralProperty* property,
-    const Type::ExpressionClassifier* classifier, bool* ok) {
+    ObjectLiteralProperty* property, Type::ExpressionClassifier* classifier,
+    bool* ok) {
   return parser_->RewriteNonPatternObjectLiteralProperty(property, classifier,
                                                          ok);
 }
@@ -5525,6 +5525,9 @@ class NonPatternRewriter : public AstExpressionRewriter {
 
  private:
   bool RewriteExpression(Expression* expr) override {
+    if (expr->IsRewritableExpression()) {
+      return true;
+    }
     // Rewrite only what could have been a pattern but is not.
     if (expr->IsArrayLiteral()) {
       // Spread rewriting in array literals.
@@ -5555,7 +5558,7 @@ class NonPatternRewriter : public AstExpressionRewriter {
 
 
 Expression* Parser::RewriteNonPattern(
-    Expression* expr, const ExpressionClassifier* classifier, bool* ok) {
+    Expression* expr, ExpressionClassifier* classifier, bool* ok) {
   ValidateExpression(classifier, ok);
   if (!*ok) return expr;
   auto non_patterns_to_rewrite = function_state_->non_patterns_to_rewrite();
@@ -5572,7 +5575,7 @@ Expression* Parser::RewriteNonPattern(
 
 
 ObjectLiteralProperty* Parser::RewriteNonPatternObjectLiteralProperty(
-    ObjectLiteralProperty* property, const ExpressionClassifier* classifier,
+    ObjectLiteralProperty* property, ExpressionClassifier* classifier,
     bool* ok) {
   // TODO(nikolaos): see if this is needed
   if (property != nullptr) {

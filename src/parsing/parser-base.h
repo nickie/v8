@@ -1477,7 +1477,7 @@ typename ParserBase<Traits>::ExpressionT ParserBase<Traits>::ParseExpression(
   ExpressionClassifier binding_classifier(DEBUG_THIS);
   ExpressionT result = this->ParseAssignmentExpression(
       accept_IN, flags, &binding_classifier, CHECK_OK);
-  classifier->Accumulate(binding_classifier,
+  classifier->Accumulate(&binding_classifier,
                          ExpressionClassifier::AllProductions);
   bool is_simple_parameter_list = this->IsIdentifier(result);
   bool seen_rest = false;
@@ -1503,7 +1503,7 @@ typename ParserBase<Traits>::ExpressionT ParserBase<Traits>::ParseExpression(
     ExpressionClassifier binding_classifier(DEBUG_THIS);
     ExpressionT right = this->ParseAssignmentExpression(
         accept_IN, flags, &binding_classifier, CHECK_OK);
-    classifier->Accumulate(binding_classifier,
+    classifier->Accumulate(&binding_classifier,
                            ExpressionClassifier::AllProductions);
     if (is_rest) {
       if (!this->IsIdentifier(right) && !right->IsObjectLiteral() &&
@@ -1638,7 +1638,7 @@ typename ParserBase<Traits>::ExpressionT ParserBase<Traits>::ParsePropertyName(
           ParseAssignmentExpression(true, &computed_name_classifier, CHECK_OK);
       expression = Traits::RewriteNonPattern(
           expression, &computed_name_classifier, CHECK_OK);
-      classifier->Accumulate(computed_name_classifier,
+      classifier->Accumulate(&computed_name_classifier,
                              ExpressionClassifier::ExpressionProductions);
       Expect(Token::RBRACK, CHECK_OK);
       return expression;
@@ -1729,7 +1729,7 @@ ParserBase<Traits>::ParsePropertyDefinition(
             true, &rhs_classifier, CHECK_OK_CUSTOM(EmptyObjectLiteralProperty));
         rhs = Traits::RewriteNonPattern(
             rhs, &rhs_classifier, CHECK_OK_CUSTOM(EmptyObjectLiteralProperty));
-        classifier->Accumulate(rhs_classifier,
+        classifier->Accumulate(&rhs_classifier,
                                ExpressionClassifier::ExpressionProductions);
         value = factory()->NewAssignment(Token::ASSIGN, lhs, rhs,
                                          RelocInfo::kNoPosition);
@@ -2063,11 +2063,13 @@ ParserBase<Traits>::ParseAssignmentExpression(bool accept_IN, int flags,
 
   // "expression" was not itself an arrow function parameter list, but it might
   // form part of one.  Propagate speculative formal parameter error locations.
+  // Do not merge pending non-pattern expressions yet!
   classifier->Accumulate(
-      arrow_formals_classifier,
+      &arrow_formals_classifier,
       ExpressionClassifier::StandardProductions |
-          ExpressionClassifier::FormalParametersProductions |
-          ExpressionClassifier::CoverInitializedNameProduction);
+      ExpressionClassifier::FormalParametersProductions |
+      ExpressionClassifier::CoverInitializedNameProduction,
+      false);
 
   bool maybe_pattern =
       expression->IsObjectLiteral() || expression->IsArrayLiteral();
@@ -2078,8 +2080,13 @@ ParserBase<Traits>::ParseAssignmentExpression(bool accept_IN, int flags,
       CheckDestructuringElement(expression, classifier, lhs_beg_pos,
                                 scanner()->location().end_pos);
     }
+    // Now pending non-pattern expressions must be merged.
+    classifier->MergeNonPatterns(&arrow_formals_classifier);
     return expression;
   }
+
+  // Now pending non-pattern expressions must be discarded.
+  arrow_formals_classifier.Discard();
 
   if (!(allow_harmony_destructuring_bind() ||
         allow_harmony_default_parameters())) {
@@ -2121,8 +2128,8 @@ ParserBase<Traits>::ParseAssignmentExpression(bool accept_IN, int flags,
       this->ParseAssignmentExpression(accept_IN, &rhs_classifier, CHECK_OK);
   right = Traits::RewriteNonPattern(right, &rhs_classifier, CHECK_OK);
   classifier->Accumulate(
-      rhs_classifier, ExpressionClassifier::ExpressionProductions |
-                          ExpressionClassifier::CoverInitializedNameProduction);
+      &rhs_classifier, ExpressionClassifier::ExpressionProductions |
+                       ExpressionClassifier::CoverInitializedNameProduction);
 
   // TODO(1231235): We try to estimate the set of properties set by
   // constructors. We define a new property whenever there is an

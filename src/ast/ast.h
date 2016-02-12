@@ -2564,11 +2564,6 @@ class RewritableExpression : public Expression {
   Expression* expression() const { return expr_; }
   bool is_rewritten() const { return is_rewritten_; }
 
-  void set_expression(Expression* e) {
-    DCHECK(!e->IsRewritableExpression());
-    expr_ = e;
-  }
-
   void Rewrite(Expression* new_expression) {
     DCHECK(!is_rewritten());
     DCHECK_NOT_NULL(new_expression);

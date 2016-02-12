@@ -655,10 +655,10 @@ class ParserTraits {
 
   // Rewrite expressions that are not used as patterns
   V8_INLINE Expression* RewriteNonPattern(
-      Expression* expr, const Type::ExpressionClassifier* classifier, bool* ok);
+      Expression* expr, Type::ExpressionClassifier* classifier, bool* ok);
   V8_INLINE ObjectLiteralProperty* RewriteNonPatternObjectLiteralProperty(
-      ObjectLiteralProperty* property,
-      const Type::ExpressionClassifier* classifier, bool* ok);
+      ObjectLiteralProperty* property, Type::ExpressionClassifier* classifier,
+      bool* ok);
 
   V8_INLINE ZoneList<typename Type::ExpressionClassifier::Error>*
   GetReportedErrorList() const;
@@ -1035,9 +1035,9 @@ class Parser : public ParserBase<ParserTraits> {
   V8_INLINE Expression* RewriteSpreads(ArrayLiteral* lit);
 
   V8_INLINE Expression* RewriteNonPattern(
-      Expression* expr, const ExpressionClassifier* classifier, bool* ok);
+      Expression* expr, ExpressionClassifier* classifier, bool* ok);
   V8_INLINE ObjectLiteralProperty* RewriteNonPatternObjectLiteralProperty(
-      ObjectLiteralProperty* property, const ExpressionClassifier* classifier,
+      ObjectLiteralProperty* property, ExpressionClassifier* classifier,
       bool* ok);
 
   friend class InitializerRewriter;

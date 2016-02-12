@@ -90,12 +90,13 @@ class ExpressionClassifier {
 #endif
                                         const Traits* t)
       : reported_errors_(t->GetReportedErrorList()),
+        non_patterns_to_rewrite_(t->GetNonPatternList()),
         zone_(t->zone()),
         invalid_productions_(0),
         function_properties_(0),
         duplicate_finder_(nullptr) {
     reported_errors_begin_ = reported_errors_end_ = reported_errors_->length();
-    non_pattern_begin_ = t->GetNonPatternList()->length();
+    non_pattern_begin_ = non_patterns_to_rewrite_->length();
 #ifdef NICKIE_DEBUG
     fprintf(stderr, "create classifier %p %u- list %p at %s:%d\n", this,
             reported_errors_begin_, reported_errors_, filename, line);
@@ -109,12 +110,13 @@ class ExpressionClassifier {
                                const Traits* t,
                                DuplicateFinder* duplicate_finder)
       : reported_errors_(t->GetReportedErrorList()),
+        non_patterns_to_rewrite_(t->GetNonPatternList()),
         zone_(t->zone()),
         invalid_productions_(0),
         function_properties_(0),
         duplicate_finder_(duplicate_finder) {
     reported_errors_begin_ = reported_errors_end_ = reported_errors_->length();
-    non_pattern_begin_ = t->GetNonPatternList()->length();
+    non_pattern_begin_ = non_patterns_to_rewrite_->length();
 #ifdef NICKIE_DEBUG
     fprintf(stderr, "create classifier %p %u- list %p at %s:%d\n", this,
             reported_errors_begin_, reported_errors_, filename, line);
@@ -344,21 +346,23 @@ class ExpressionClassifier {
     e.kind = kUnusedError;
   }
 
-  void Accumulate(ExpressionClassifier& inner,
-                  unsigned productions = StandardProductions) {
+  void Accumulate(ExpressionClassifier* inner,
+                  unsigned productions = StandardProductions,
+                  bool merge_non_patterns = true) {
 #ifdef NICKIE_DEBUG
     fprintf(stderr, "accumulate classifier %p %u-%u in %p %u-%u\n",
-            &inner, inner.reported_errors_begin_, inner.reported_errors_end_,
+            &inner, inner->reported_errors_begin_, inner->reported_errors_end_,
             this, reported_errors_begin_, reported_errors_end_);
 #endif
-    DCHECK_EQ(inner.reported_errors_, reported_errors_);
-    DCHECK_EQ(inner.reported_errors_begin_, reported_errors_end_);
-    DCHECK_EQ(inner.reported_errors_end_, reported_errors_->length());
+    DCHECK_EQ(inner->reported_errors_, reported_errors_);
+    DCHECK_EQ(inner->reported_errors_begin_, reported_errors_end_);
+    DCHECK_EQ(inner->reported_errors_end_, reported_errors_->length());
+    if (merge_non_patterns) MergeNonPatterns(inner);
     // Propagate errors from inner, but don't overwrite already recorded
     // errors.
     unsigned non_arrow_inner_invalid_productions =
-        inner.invalid_productions_ & ~ArrowFormalParametersProduction;
-    int next = inner.reported_errors_begin_;
+        inner->invalid_productions_ & ~ArrowFormalParametersProduction;
+    int next = inner->reported_errors_begin_;
     if (non_arrow_inner_invalid_productions) {
       unsigned non_arrow_productions =
           productions & ~ArrowFormalParametersProduction;
@@ -371,17 +375,17 @@ class ExpressionClassifier {
           is_valid_arrow_formal_parameters()) {
         // Also copy function properties if expecting an arrow function
         // parameter.
-        function_properties_ |= inner.function_properties_;
+        function_properties_ |= inner->function_properties_;
 
-        if (!inner.is_valid_binding_pattern())
+        if (!inner->is_valid_binding_pattern())
           errors |= ArrowFormalParametersProduction;
       }
 
       if (errors != 0) {
         invalid_productions_ |= errors;
-        int arrow_index = inner.reported_errors_end_;
-        for (int i = inner.reported_errors_begin_;
-             i < inner.reported_errors_end_; i++) {
+        int arrow_index = inner->reported_errors_end_;
+        for (int i = inner->reported_errors_begin_;
+             i < inner->reported_errors_end_; i++) {
           if (reported_errors_->at(i).kind == kUnusedError ||
               reported_errors_->at(i).kind == kArrowFormalParametersProduction)
             continue;
@@ -399,7 +403,7 @@ class ExpressionClassifier {
             }
           }
         }
-        if (arrow_index < inner.reported_errors_end_) {
+        if (arrow_index < inner->reported_errors_end_) {
           Add(reported_errors_->at(arrow_index));
           reported_errors_->at(next++).kind = kArrowFormalParametersProduction;
         }
@@ -407,7 +411,7 @@ class ExpressionClassifier {
     }
     DCHECK_EQ(reported_errors_end_, next);
     reported_errors_->Rewind(next);
-    inner.reported_errors_begin_ = inner.reported_errors_end_ = next;
+    inner->reported_errors_begin_ = inner->reported_errors_end_ = next;
 #ifdef NICKIE_DEBUG
     fprintf(stderr, "now classifier %p %u-%u\n", this,
             reported_errors_begin_, reported_errors_end_);
@@ -424,9 +428,16 @@ class ExpressionClassifier {
       reported_errors_end_ = reported_errors_begin_;
     }
     DCHECK_EQ(reported_errors_begin_, reported_errors_end_);
+    DCHECK_LE(non_pattern_begin_, non_patterns_to_rewrite_->length());
+    non_patterns_to_rewrite_->Rewind(non_pattern_begin_);
   }
 
   V8_INLINE int GetNonPatternBegin() const { return non_pattern_begin_; }
+
+  V8_INLINE void MergeNonPatterns(ExpressionClassifier* inner) {
+    DCHECK_LE(non_pattern_begin_, inner->non_pattern_begin_);
+    inner->non_pattern_begin_ = inner->non_patterns_to_rewrite_->length();
+  }
 
  private:
   V8_INLINE Error& reported_error(ErrorKind kind) const {
@@ -462,6 +473,7 @@ class ExpressionClassifier {
   }
 
   ZoneList<Error>* reported_errors_;
+  ZoneList<typename Traits::Type::Expression>* non_patterns_to_rewrite_;
   Zone* zone_;
 
   unsigned invalid_productions_ : 14;
