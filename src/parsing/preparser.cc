@@ -940,9 +940,8 @@ PreParser::Statement PreParser::ParseForStatement(bool* ok) {
 
         if (mode == ForEachStatement::ITERATE) {
           ExpressionClassifier classifier(DEBUG_THIS);
-          Expression enumerable =
-              ParseAssignmentExpression(true, &classifier, CHECK_OK);
-          RewriteNonPattern(enumerable, &classifier, CHECK_OK);
+          ParseAssignmentExpression(true, &classifier, CHECK_OK);
+          RewriteNonPattern(&classifier, CHECK_OK);
         } else {
           ParseExpression(true, CHECK_OK);
         }
@@ -979,9 +978,8 @@ PreParser::Statement PreParser::ParseForStatement(bool* ok) {
 
         if (mode == ForEachStatement::ITERATE) {
           ExpressionClassifier classifier(DEBUG_THIS);
-          Expression enumerable =
-              ParseAssignmentExpression(true, &classifier, CHECK_OK);
-          RewriteNonPattern(enumerable, &classifier, CHECK_OK);
+          ParseAssignmentExpression(true, &classifier, CHECK_OK);
+          RewriteNonPattern(&classifier, CHECK_OK);
         } else {
           ParseExpression(true, CHECK_OK);
         }

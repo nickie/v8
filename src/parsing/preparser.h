@@ -931,12 +931,8 @@ class PreParserTraits {
   void SetFunctionNameFromIdentifierRef(PreParserExpression,
                                         PreParserExpression) {}
 
-  inline PreParserExpression RewriteNonPattern(
-      PreParserExpression expr, Type::ExpressionClassifier* classifier,
-      bool* ok);
-  inline PreParserExpression RewriteNonPatternObjectLiteralProperty(
-      PreParserExpression property, Type::ExpressionClassifier* classifier,
-      bool* ok);
+  inline void RewriteNonPattern(Type::ExpressionClassifier* classifier,
+                                bool* ok);
 
   V8_INLINE ZoneList<typename Type::ExpressionClassifier::Error>*
   GetReportedErrorList() const;
@@ -1127,19 +1123,9 @@ PreParserExpression PreParserTraits::ParseDoExpression(bool* ok) {
 }
 
 
-PreParserExpression PreParserTraits::RewriteNonPattern(
-    PreParserExpression expr, Type::ExpressionClassifier* classifier,
-    bool* ok) {
+void PreParserTraits::RewriteNonPattern(Type::ExpressionClassifier* classifier,
+                                        bool* ok) {
   pre_parser_->ValidateExpression(classifier, ok);
-  return expr;
-}
-
-
-PreParserExpression PreParserTraits::RewriteNonPatternObjectLiteralProperty(
-    PreParserExpression property, Type::ExpressionClassifier* classifier,
-    bool* ok) {
-  pre_parser_->ValidateExpression(classifier, ok);
-  return property;
 }
 
 
