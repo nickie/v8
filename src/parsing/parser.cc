@@ -5555,8 +5555,10 @@ void Parser::RewriteNonPattern(ExpressionClassifier* classifier, bool* ok) {
   int end = non_patterns_to_rewrite->length();
   if (begin < end) {
     NonPatternRewriter rewriter(stack_limit_, this);
-    for (int i = begin; i < end; i++)
+    for (int i = begin; i < end; i++) {
+      DCHECK(non_patterns_to_rewrite->at(i)->IsRewritableExpression());
       rewriter.Rewrite(non_patterns_to_rewrite->at(i));
+    }
     non_patterns_to_rewrite->Rewind(begin);
   }
 }

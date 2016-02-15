@@ -961,8 +961,6 @@ class ParserBase : public Traits {
   bool allow_legacy_const_;
   bool allow_harmony_do_expressions_;
   bool allow_harmony_function_name_;
-
-  friend ExpressionClassifier;  // TODO(nikolaos): we'll see about this!
 };
 
 
