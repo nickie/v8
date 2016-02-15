@@ -5517,9 +5517,7 @@ class NonPatternRewriter : public AstExpressionRewriter {
 
  private:
   bool RewriteExpression(Expression* expr) override {
-    if (expr->IsRewritableExpression()) {
-      return true;
-    }
+    if (expr->IsRewritableExpression()) return true;
     // Rewrite only what could have been a pattern but is not.
     if (expr->IsArrayLiteral()) {
       // Spread rewriting in array literals.

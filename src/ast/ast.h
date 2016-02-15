@@ -204,9 +204,9 @@ class AstNode: public ZoneObject {
 #endif  // DEBUG
 
   // Type testing & conversion functions overridden by concrete subclasses.
-#define DECLARE_NODE_FUNCTIONS(type)                            \
-  V8_INLINE bool Is##type() const;                              \
-  V8_INLINE type* As##type();                                   \
+#define DECLARE_NODE_FUNCTIONS(type) \
+  V8_INLINE bool Is##type() const;   \
+  V8_INLINE type* As##type();        \
   V8_INLINE const type* As##type() const;
   AST_NODE_LIST(DECLARE_NODE_FUNCTIONS)
 #undef DECLARE_NODE_FUNCTIONS
@@ -3564,38 +3564,38 @@ class AstNodeFactory final BASE_EMBEDDED {
 // Type testing & conversion functions overridden by concrete subclasses.
 // Inline functions for AstNode.
 
-#define DECLARE_NODE_FUNCTIONS(type)                                    \
-  bool AstNode::Is##type() const {                                      \
-    NodeType mine = node_type();                                        \
-    if (mine == AstNode::kRewritableExpression &&                       \
-        AstNode::k##type != AstNode::kRewritableExpression)             \
-      mine = reinterpret_cast<const RewritableExpression*>(this)->      \
-          expression()->node_type();                                    \
-    return mine == AstNode::k##type;                                    \
-  }                                                                     \
-  type* AstNode::As##type() {                                           \
-    NodeType mine = node_type();                                        \
-    AstNode* result = this;                                             \
-    if (mine == AstNode::kRewritableExpression &&                       \
-        AstNode::k##type != AstNode::kRewritableExpression) {           \
-      result = reinterpret_cast<const RewritableExpression*>(this)->    \
-          expression();                                                 \
-      mine = result->node_type();                                       \
-    }                                                                   \
-    return mine == AstNode::k##type                                     \
-        ? reinterpret_cast<type*>(result) : NULL;                       \
-  }                                                                     \
-  const type* AstNode::As##type() const {                               \
-    NodeType mine = node_type();                                        \
-    const AstNode* result = this;                                       \
-    if (mine == AstNode::kRewritableExpression &&                       \
-        AstNode::k##type != AstNode::kRewritableExpression) {           \
-      result = reinterpret_cast<const RewritableExpression*>(this)->    \
-          expression();                                                 \
-      mine = result->node_type();                                       \
-    }                                                                   \
-    return mine == AstNode::k##type                                     \
-        ? reinterpret_cast<const type*>(result) : NULL;                 \
+#define DECLARE_NODE_FUNCTIONS(type)                                          \
+  bool AstNode::Is##type() const {                                            \
+    NodeType mine = node_type();                                              \
+    if (mine == AstNode::kRewritableExpression &&                             \
+        AstNode::k##type != AstNode::kRewritableExpression)                   \
+      mine = reinterpret_cast<const RewritableExpression*>(this)              \
+                 ->expression()                                               \
+                 ->node_type();                                               \
+    return mine == AstNode::k##type;                                          \
+  }                                                                           \
+  type* AstNode::As##type() {                                                 \
+    NodeType mine = node_type();                                              \
+    AstNode* result = this;                                                   \
+    if (mine == AstNode::kRewritableExpression &&                             \
+        AstNode::k##type != AstNode::kRewritableExpression) {                 \
+      result =                                                                \
+          reinterpret_cast<const RewritableExpression*>(this)->expression();  \
+      mine = result->node_type();                                             \
+    }                                                                         \
+    return mine == AstNode::k##type ? reinterpret_cast<type*>(result) : NULL; \
+  }                                                                           \
+  const type* AstNode::As##type() const {                                     \
+    NodeType mine = node_type();                                              \
+    const AstNode* result = this;                                             \
+    if (mine == AstNode::kRewritableExpression &&                             \
+        AstNode::k##type != AstNode::kRewritableExpression) {                 \
+      result =                                                                \
+          reinterpret_cast<const RewritableExpression*>(this)->expression();  \
+      mine = result->node_type();                                             \
+    }                                                                         \
+    return mine == AstNode::k##type ? reinterpret_cast<const type*>(result)   \
+                                    : NULL;                                   \
   }
 AST_NODE_LIST(DECLARE_NODE_FUNCTIONS)
 #undef DECLARE_NODE_FUNCTIONS
