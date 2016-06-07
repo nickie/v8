@@ -19,6 +19,19 @@ namespace v8 {
 namespace internal {
 
 
+#define COST_PREAMBLE()                                         \
+  bool _parser_cost_inlined =                                   \
+      this->_parser_cost_fp == __builtin_return_address(0);     \
+  USE(_parser_cost_inlined)
+#define COST(e) ({                                                      \
+      this->_parser_cost_fp = __builtin_return_address(0);              \
+      auto _parser_cost_result = e;                                     \
+      if (_parser_cost_result)                                          \
+        _parser_cost_result->increase_cost(_parser_cost_inlined);       \
+      _parser_cost_result;                                              \
+    })
+
+
 enum FunctionNameValidity {
   kFunctionNameIsStrictReserved,
   kSkipFunctionNameCheck,
@@ -1031,8 +1044,9 @@ class ParserBase : public Traits {
                                      bool* is_async, bool* ok);
   ExpressionT ParsePrimaryExpression(ExpressionClassifier* classifier,
                                      bool* ok) {
+    COST_PREAMBLE();
     bool is_async;
-    return ParsePrimaryExpression(classifier, &is_async, ok);
+    return COST(ParsePrimaryExpression(classifier, &is_async, ok));
   }
   ExpressionT ParseExpression(bool accept_IN, bool* ok);
   ExpressionT ParseExpression(bool accept_IN, ExpressionClassifier* classifier,
@@ -1212,6 +1226,9 @@ class ParserBase : public Traits {
   Mode mode_;
   bool parsing_module_;
   uintptr_t stack_limit_;
+
+ protected:
+  void* _parser_cost_fp;
 
  private:
   Zone* zone_;
@@ -1475,6 +1492,7 @@ ParserBase<Traits>::ParseIdentifierName(bool* ok) {
 template <class Traits>
 typename ParserBase<Traits>::ExpressionT ParserBase<Traits>::ParseRegExpLiteral(
     bool seen_equal, ExpressionClassifier* classifier, bool* ok) {
+  COST_PREAMBLE();
   int pos = peek_position();
   if (!scanner()->ScanRegExpPattern(seen_equal)) {
     Next();
@@ -1495,7 +1513,8 @@ typename ParserBase<Traits>::ExpressionT ParserBase<Traits>::ParseRegExpLiteral(
   }
   int js_flags = flags.FromJust();
   Next();
-  return factory()->NewRegExpLiteral(js_pattern, js_flags, literal_index, pos);
+  return COST(factory()->NewRegExpLiteral(js_pattern, js_flags, literal_index,
+                                          pos));
 }
 
 
@@ -1503,6 +1522,7 @@ template <class Traits>
 typename ParserBase<Traits>::ExpressionT
 ParserBase<Traits>::ParsePrimaryExpression(ExpressionClassifier* classifier,
                                            bool* is_async, bool* ok) {
+  COST_PREAMBLE();
   // PrimaryExpression ::
   //   'this'
   //   'null'
@@ -1525,25 +1545,27 @@ ParserBase<Traits>::ParsePrimaryExpression(ExpressionClassifier* classifier,
     case Token::THIS: {
       BindingPatternUnexpectedToken(classifier);
       Consume(Token::THIS);
-      return this->ThisExpression(scope(), factory(), beg_pos);
+      return COST(this->ThisExpression(scope(), factory(), beg_pos));
     }
 
     case Token::NULL_LITERAL:
     case Token::TRUE_LITERAL:
     case Token::FALSE_LITERAL:
       BindingPatternUnexpectedToken(classifier);
-      return this->ExpressionFromLiteral(Next(), beg_pos, scanner(), factory());
+      return COST(this->ExpressionFromLiteral(Next(), beg_pos, scanner(),
+                                              factory()));
     case Token::SMI:
     case Token::NUMBER:
       BindingPatternUnexpectedToken(classifier);
-      return this->ExpressionFromLiteral(Next(), beg_pos, scanner(), factory());
+      return COST(this->ExpressionFromLiteral(Next(), beg_pos, scanner(),
+                                              factory()));
 
     case Token::ASYNC:
       if (allow_harmony_async_await() &&
           !scanner()->HasAnyLineTerminatorAfterNext() &&
           PeekAhead() == Token::FUNCTION) {
         Consume(Token::ASYNC);
-        return this->ParseAsyncFunctionExpression(CHECK_OK);
+        return COST(this->ParseAsyncFunctionExpression(CHECK_OK));
       }
       // CoverCallExpressionAndAsyncArrowHead
       *is_async = true;
@@ -1557,31 +1579,31 @@ ParserBase<Traits>::ParsePrimaryExpression(ExpressionClassifier* classifier,
     case Token::FUTURE_STRICT_RESERVED_WORD: {
       // Using eval or arguments in this context is OK even in strict mode.
       IdentifierT name = ParseAndClassifyIdentifier(classifier, CHECK_OK);
-      return this->ExpressionFromIdentifier(
-          name, beg_pos, scanner()->location().end_pos, scope(), factory());
+      return COST(this->ExpressionFromIdentifier(
+          name, beg_pos, scanner()->location().end_pos, scope(), factory()));
     }
 
     case Token::STRING: {
       BindingPatternUnexpectedToken(classifier);
       Consume(Token::STRING);
-      return this->ExpressionFromString(beg_pos, scanner(), factory());
+      return COST(this->ExpressionFromString(beg_pos, scanner(), factory()));
     }
 
     case Token::ASSIGN_DIV:
       classifier->RecordBindingPatternError(
           scanner()->peek_location(), MessageTemplate::kUnexpectedTokenRegExp);
-      return this->ParseRegExpLiteral(true, classifier, ok);
+      return COST(this->ParseRegExpLiteral(true, classifier, ok));
 
     case Token::DIV:
       classifier->RecordBindingPatternError(
           scanner()->peek_location(), MessageTemplate::kUnexpectedTokenRegExp);
-      return this->ParseRegExpLiteral(false, classifier, ok);
+      return COST(this->ParseRegExpLiteral(false, classifier, ok));
 
     case Token::LBRACK:
-      return this->ParseArrayLiteral(classifier, ok);
+      return COST(this->ParseArrayLiteral(classifier, ok));
 
     case Token::LBRACE:
-      return this->ParseObjectLiteral(classifier, ok);
+      return COST(this->ParseObjectLiteral(classifier, ok));
 
     case Token::LPAREN: {
       // Arrow function formal parameters are either a single identifier or a
@@ -1601,7 +1623,7 @@ ParserBase<Traits>::ParsePrimaryExpression(ExpressionClassifier* classifier,
         classifier->RecordExpressionError(scanner()->location(),
                                           MessageTemplate::kUnexpectedToken,
                                           Token::String(Token::RPAREN));
-        return factory()->NewEmptyParentheses(beg_pos);
+        return COST(factory()->NewEmptyParentheses(beg_pos));
       } else if (Check(Token::ELLIPSIS)) {
         // (...x)=>x.  The continuation that looks for the => is in
         // ParseAssignmentExpression.
@@ -1612,8 +1634,8 @@ ParserBase<Traits>::ParsePrimaryExpression(ExpressionClassifier* classifier,
                                           Token::String(Token::ELLIPSIS));
         classifier->RecordNonSimpleParameter();
         ExpressionClassifier binding_classifier(this);
-        ExpressionT expr = this->ParseAssignmentExpression(
-            true, &binding_classifier, CHECK_OK);
+        ExpressionT expr = COST(this->ParseAssignmentExpression(
+            true, &binding_classifier, CHECK_OK));
         classifier->Accumulate(&binding_classifier,
                                ExpressionClassifier::AllProductions);
         if (!this->IsIdentifier(expr) && !IsValidPattern(expr)) {
@@ -1628,13 +1650,14 @@ ParserBase<Traits>::ParsePrimaryExpression(ExpressionClassifier* classifier,
           return this->EmptyExpression();
         }
         Expect(Token::RPAREN, CHECK_OK);
-        return factory()->NewSpread(expr, ellipsis_pos, expr_pos);
+        return COST(factory()->NewSpread(expr, ellipsis_pos, expr_pos));
       }
       // Heuristically try to detect immediately called functions before
       // seeing the call parentheses.
       function_state_->next_function_is_parenthesized(peek() ==
                                                       Token::FUNCTION);
-      ExpressionT expr = this->ParseExpression(true, classifier, CHECK_OK);
+      ExpressionT expr = COST(this->ParseExpression(true, classifier,
+                                                    CHECK_OK));
       Expect(Token::RPAREN, CHECK_OK);
       return expr;
     }
@@ -1651,28 +1674,28 @@ ParserBase<Traits>::ParsePrimaryExpression(ExpressionClassifier* classifier,
                                                    CHECK_OK);
         class_name_location = scanner()->location();
       }
-      return this->ParseClassLiteral(classifier, name, class_name_location,
-                                     is_strict_reserved_name,
-                                     class_token_position, ok);
+      return COST(this->ParseClassLiteral(classifier, name, class_name_location,
+                                          is_strict_reserved_name,
+                                          class_token_position, ok));
     }
 
     case Token::TEMPLATE_SPAN:
     case Token::TEMPLATE_TAIL:
       BindingPatternUnexpectedToken(classifier);
-      return this->ParseTemplateLiteral(Traits::NoTemplateTag(), beg_pos,
-                                        classifier, ok);
+      return COST(this->ParseTemplateLiteral(Traits::NoTemplateTag(), beg_pos,
+                                             classifier, ok));
 
     case Token::MOD:
       if (allow_natives() || extension_ != NULL) {
         BindingPatternUnexpectedToken(classifier);
-        return this->ParseV8Intrinsic(ok);
+        return COST(this->ParseV8Intrinsic(ok));
       }
       break;
 
     case Token::DO:
       if (allow_harmony_do_expressions()) {
         BindingPatternUnexpectedToken(classifier);
-        return Traits::ParseDoExpression(ok);
+        return COST(Traits::ParseDoExpression(ok));
       }
       break;
 
@@ -1689,8 +1712,9 @@ ParserBase<Traits>::ParsePrimaryExpression(ExpressionClassifier* classifier,
 template <class Traits>
 typename ParserBase<Traits>::ExpressionT ParserBase<Traits>::ParseExpression(
     bool accept_IN, bool* ok) {
+  COST_PREAMBLE();
   ExpressionClassifier classifier(this);
-  ExpressionT result = ParseExpression(accept_IN, &classifier, CHECK_OK);
+  ExpressionT result = COST(ParseExpression(accept_IN, &classifier, CHECK_OK));
   Traits::RewriteNonPattern(&classifier, CHECK_OK);
   return result;
 }
@@ -1698,6 +1722,7 @@ typename ParserBase<Traits>::ExpressionT ParserBase<Traits>::ParseExpression(
 template <class Traits>
 typename ParserBase<Traits>::ExpressionT ParserBase<Traits>::ParseExpression(
     bool accept_IN, ExpressionClassifier* classifier, bool* ok) {
+  COST_PREAMBLE();
   // Expression ::
   //   AssignmentExpression
   //   Expression ',' AssignmentExpression
@@ -1705,8 +1730,8 @@ typename ParserBase<Traits>::ExpressionT ParserBase<Traits>::ParseExpression(
   ExpressionT result = this->EmptyExpression();
   {
     ExpressionClassifier binding_classifier(this);
-    result = this->ParseAssignmentExpression(accept_IN, &binding_classifier,
-                                             CHECK_OK);
+    result = COST(this->ParseAssignmentExpression(
+        accept_IN, &binding_classifier, CHECK_OK));
     classifier->Accumulate(&binding_classifier,
                            ExpressionClassifier::AllProductions);
   }
@@ -1737,8 +1762,8 @@ typename ParserBase<Traits>::ExpressionT ParserBase<Traits>::ParseExpression(
     }
     int pos = position(), expr_pos = peek_position();
     ExpressionClassifier binding_classifier(this);
-    ExpressionT right = this->ParseAssignmentExpression(
-        accept_IN, &binding_classifier, CHECK_OK);
+    ExpressionT right = COST(this->ParseAssignmentExpression(
+        accept_IN, &binding_classifier, CHECK_OK));
     classifier->Accumulate(&binding_classifier,
                            ExpressionClassifier::AllProductions);
     if (is_rest) {
@@ -1751,7 +1776,8 @@ typename ParserBase<Traits>::ExpressionT ParserBase<Traits>::ParseExpression(
     }
     is_simple_parameter_list =
         is_simple_parameter_list && this->IsIdentifier(right);
-    result = factory()->NewBinaryOperation(Token::COMMA, result, right, pos);
+    result =
+        COST(factory()->NewBinaryOperation(Token::COMMA, result, right, pos));
   }
   if (!is_simple_parameter_list || seen_rest) {
     classifier->RecordNonSimpleParameter();
@@ -1764,6 +1790,7 @@ typename ParserBase<Traits>::ExpressionT ParserBase<Traits>::ParseExpression(
 template <class Traits>
 typename ParserBase<Traits>::ExpressionT ParserBase<Traits>::ParseArrayLiteral(
     ExpressionClassifier* classifier, bool* ok) {
+  COST_PREAMBLE();
   // ArrayLiteral ::
   //   '[' Expression? (',' Expression?)* ']'
 
@@ -1781,9 +1808,9 @@ typename ParserBase<Traits>::ExpressionT ParserBase<Traits>::ParseArrayLiteral(
       Consume(Token::ELLIPSIS);
       int expr_pos = peek_position();
       ExpressionT argument =
-          this->ParseAssignmentExpression(true, classifier, CHECK_OK);
+          COST(this->ParseAssignmentExpression(true, classifier, CHECK_OK));
       CheckNoTailCallExpressions(classifier, CHECK_OK);
-      elem = factory()->NewSpread(argument, start_pos, expr_pos);
+      elem = COST(factory()->NewSpread(argument, start_pos, expr_pos));
 
       if (first_spread_index < 0) {
         first_spread_index = values->length();
@@ -1805,7 +1832,7 @@ typename ParserBase<Traits>::ExpressionT ParserBase<Traits>::ParseArrayLiteral(
       }
     } else {
       int beg_pos = peek_position();
-      elem = this->ParseAssignmentExpression(true, classifier, CHECK_OK);
+      elem = COST(this->ParseAssignmentExpression(true, classifier, CHECK_OK));
       CheckNoTailCallExpressions(classifier, CHECK_OK);
       CheckDestructuringElement(elem, classifier, beg_pos,
                                 scanner()->location().end_pos);
@@ -1823,7 +1850,7 @@ typename ParserBase<Traits>::ExpressionT ParserBase<Traits>::ParseArrayLiteral(
   ExpressionT result = factory()->NewArrayLiteral(values, first_spread_index,
                                                   literal_index, pos);
   if (first_spread_index >= 0) {
-    result = factory()->NewRewritableExpression(result);
+    result = COST(factory()->NewRewritableExpression(result));
     Traits::QueueNonPatternForRewriting(result, ok);
     if (!*ok) {
       // If the non-pattern rewriting mechanism is used in the future for
@@ -1841,6 +1868,7 @@ template <class Traits>
 typename ParserBase<Traits>::ExpressionT ParserBase<Traits>::ParsePropertyName(
     IdentifierT* name, bool* is_get, bool* is_set, bool* is_await,
     bool* is_computed_name, ExpressionClassifier* classifier, bool* ok) {
+  COST_PREAMBLE();
   Token::Value token = peek();
   int pos = peek_position();
 
@@ -1873,8 +1901,8 @@ typename ParserBase<Traits>::ExpressionT ParserBase<Traits>::ParsePropertyName(
       *is_computed_name = true;
       Consume(Token::LBRACK);
       ExpressionClassifier computed_name_classifier(this);
-      ExpressionT expression =
-          ParseAssignmentExpression(true, &computed_name_classifier, CHECK_OK);
+      ExpressionT expression = COST(ParseAssignmentExpression(
+          true, &computed_name_classifier, CHECK_OK));
       Traits::RewriteNonPattern(&computed_name_classifier, CHECK_OK);
       classifier->Accumulate(&computed_name_classifier,
                              ExpressionClassifier::ExpressionProductions);
@@ -1892,9 +1920,9 @@ typename ParserBase<Traits>::ExpressionT ParserBase<Traits>::ParsePropertyName(
   }
 
   uint32_t index;
-  return this->IsArrayIndex(*name, &index)
-             ? factory()->NewNumberLiteral(index, pos)
-             : factory()->NewStringLiteral(*name, pos);
+  return COST(this->IsArrayIndex(*name, &index)
+              ? factory()->NewNumberLiteral(index, pos)
+              : factory()->NewStringLiteral(*name, pos));
 }
 
 template <class Traits>
@@ -1903,6 +1931,7 @@ ParserBase<Traits>::ParsePropertyDefinition(
     ObjectLiteralCheckerBase* checker, bool in_class, bool has_extends,
     MethodKind method_kind, bool* is_computed_name, bool* has_seen_constructor,
     ExpressionClassifier* classifier, IdentifierT* name, bool* ok) {
+  COST_PREAMBLE();
   DCHECK(!in_class || IsStaticMethod(method_kind) ||
          has_seen_constructor != nullptr);
   ExpressionT value = this->EmptyExpression();
@@ -1925,9 +1954,9 @@ ParserBase<Traits>::ParsePropertyDefinition(
 
   int next_beg_pos = scanner()->peek_location().beg_pos;
   int next_end_pos = scanner()->peek_location().end_pos;
-  ExpressionT name_expression = ParsePropertyName(
+  ExpressionT name_expression = COST(ParsePropertyName(
       name, &is_get, &is_set, &is_await, is_computed_name, classifier,
-      CHECK_OK_CUSTOM(EmptyObjectLiteralProperty));
+      CHECK_OK_CUSTOM(EmptyObjectLiteralProperty)));
 
   if (fni_ != nullptr && !*is_computed_name) {
     this->PushLiteralName(fni_, *name);
@@ -1945,8 +1974,8 @@ ParserBase<Traits>::ParsePropertyDefinition(
       }
       Consume(Token::COLON);
       int beg_pos = peek_position();
-      value = this->ParseAssignmentExpression(
-          true, classifier, CHECK_OK_CUSTOM(EmptyObjectLiteralProperty));
+      value = COST(this->ParseAssignmentExpression(
+          true, classifier, CHECK_OK_CUSTOM(EmptyObjectLiteralProperty)));
       CheckDestructuringElement(value, classifier, beg_pos,
                                 scanner()->location().end_pos);
 
@@ -1983,15 +2012,16 @@ ParserBase<Traits>::ParsePropertyDefinition(
               MessageTemplate::kAwaitBindingIdentifier);
         }
       }
-      ExpressionT lhs = this->ExpressionFromIdentifier(
-          *name, next_beg_pos, next_end_pos, scope(), factory());
+      ExpressionT lhs = COST(this->ExpressionFromIdentifier(
+          *name, next_beg_pos, next_end_pos, scope(), factory()));
       CheckDestructuringElement(lhs, classifier, next_beg_pos, next_end_pos);
 
       if (peek() == Token::ASSIGN) {
         Consume(Token::ASSIGN);
         ExpressionClassifier rhs_classifier(this);
-        ExpressionT rhs = this->ParseAssignmentExpression(
-            true, &rhs_classifier, CHECK_OK_CUSTOM(EmptyObjectLiteralProperty));
+        ExpressionT rhs = COST(this->ParseAssignmentExpression(
+            true, &rhs_classifier,
+            CHECK_OK_CUSTOM(EmptyObjectLiteralProperty)));
         Traits::RewriteNonPattern(&rhs_classifier,
                                   CHECK_OK_CUSTOM(EmptyObjectLiteralProperty));
         classifier->Accumulate(&rhs_classifier,
@@ -2022,9 +2052,9 @@ ParserBase<Traits>::ParsePropertyDefinition(
     DCHECK(!is_get);
     DCHECK(!is_set);
     bool dont_care;
-    name_expression = ParsePropertyName(
+    name_expression = COST(ParsePropertyName(
         name, &dont_care, &dont_care, &dont_care, is_computed_name, classifier,
-        CHECK_OK_CUSTOM(EmptyObjectLiteralProperty));
+        CHECK_OK_CUSTOM(EmptyObjectLiteralProperty)));
     method_kind |= MethodKind::Async;
   }
 
@@ -2049,10 +2079,10 @@ ParserBase<Traits>::ParsePropertyDefinition(
                          : FunctionKind::kBaseConstructor;
     }
 
-    value = this->ParseFunctionLiteral(
+    value = COST(this->ParseFunctionLiteral(
         *name, scanner()->location(), kSkipFunctionNameCheck, kind,
         kNoSourcePosition, FunctionLiteral::kAccessorOrMethod, language_mode(),
-        CHECK_OK_CUSTOM(EmptyObjectLiteralProperty));
+        CHECK_OK_CUSTOM(EmptyObjectLiteralProperty)));
 
     return factory()->NewObjectLiteralProperty(name_expression, value,
                                                ObjectLiteralProperty::COMPUTED,
@@ -2078,27 +2108,29 @@ ParserBase<Traits>::ParsePropertyDefinition(
     bool dont_care = false;
     name_token = peek();
 
-    name_expression = ParsePropertyName(
+    name_expression = COST(ParsePropertyName(
         name, &dont_care, &dont_care, &dont_care, is_computed_name, classifier,
-        CHECK_OK_CUSTOM(EmptyObjectLiteralProperty));
+        CHECK_OK_CUSTOM(EmptyObjectLiteralProperty)));
 
     if (!*is_computed_name) {
       checker->CheckProperty(name_token, kAccessorProperty, method_kind,
                              CHECK_OK_CUSTOM(EmptyObjectLiteralProperty));
     }
 
-    typename Traits::Type::FunctionLiteral value = this->ParseFunctionLiteral(
-        *name, scanner()->location(), kSkipFunctionNameCheck,
-        is_get ? FunctionKind::kGetterFunction : FunctionKind::kSetterFunction,
-        kNoSourcePosition, FunctionLiteral::kAccessorOrMethod, language_mode(),
-        CHECK_OK_CUSTOM(EmptyObjectLiteralProperty));
+    typename Traits::Type::FunctionLiteral value =
+        COST(this->ParseFunctionLiteral(
+            *name, scanner()->location(), kSkipFunctionNameCheck,
+            is_get ? FunctionKind::kGetterFunction
+                   : FunctionKind::kSetterFunction,
+            kNoSourcePosition, FunctionLiteral::kAccessorOrMethod,
+            language_mode(), CHECK_OK_CUSTOM(EmptyObjectLiteralProperty)));
 
     // Make sure the name expression is a string since we need a Name for
     // Runtime_DefineAccessorPropertyUnchecked and since we can determine this
     // statically we can skip the extra runtime check.
     if (!*is_computed_name) {
       name_expression =
-          factory()->NewStringLiteral(*name, name_expression->position());
+          COST(factory()->NewStringLiteral(*name, name_expression->position()));
     }
 
     return factory()->NewObjectLiteralProperty(
@@ -2117,6 +2149,7 @@ ParserBase<Traits>::ParsePropertyDefinition(
 template <class Traits>
 typename ParserBase<Traits>::ExpressionT ParserBase<Traits>::ParseObjectLiteral(
     ExpressionClassifier* classifier, bool* ok) {
+  COST_PREAMBLE();
   // ObjectLiteral ::
   // '{' (PropertyDefinition (',' PropertyDefinition)* ','? )? '}'
 
@@ -2164,16 +2197,15 @@ typename ParserBase<Traits>::ExpressionT ParserBase<Traits>::ParseObjectLiteral(
   // Computation of literal_index must happen before pre parse bailout.
   int literal_index = function_state_->NextMaterializedLiteralIndex();
 
-  return factory()->NewObjectLiteral(properties,
-                                     literal_index,
-                                     number_of_boilerplate_properties,
-                                     pos);
+  return COST(factory()->NewObjectLiteral(
+      properties, literal_index, number_of_boilerplate_properties, pos));
 }
 
 template <class Traits>
 typename Traits::Type::ExpressionList ParserBase<Traits>::ParseArguments(
     Scanner::Location* first_spread_arg_loc, bool maybe_arrow,
     ExpressionClassifier* classifier, bool* ok) {
+  COST_PREAMBLE();
   // Arguments ::
   //   '(' (AssignmentExpression)*[','] ')'
 
@@ -2189,8 +2221,8 @@ typename Traits::Type::ExpressionList ParserBase<Traits>::ParseArguments(
     bool is_spread = Check(Token::ELLIPSIS);
     int expr_pos = peek_position();
 
-    ExpressionT argument = this->ParseAssignmentExpression(
-        true, classifier, CHECK_OK_CUSTOM(NullExpressionList));
+    ExpressionT argument = COST(this->ParseAssignmentExpression(
+        true, classifier, CHECK_OK_CUSTOM(NullExpressionList)));
     CheckNoTailCallExpressions(classifier, CHECK_OK_CUSTOM(NullExpressionList));
     if (!maybe_arrow) {
       Traits::RewriteNonPattern(classifier,
@@ -2201,7 +2233,7 @@ typename Traits::Type::ExpressionList ParserBase<Traits>::ParseArguments(
         spread_arg.beg_pos = start_pos;
         spread_arg.end_pos = peek_position();
       }
-      argument = factory()->NewSpread(argument, start_pos, expr_pos);
+      argument = COST(factory()->NewSpread(argument, start_pos, expr_pos));
     }
     result->Add(argument, zone_);
 
@@ -2258,6 +2290,7 @@ typename ParserBase<Traits>::ExpressionT
 ParserBase<Traits>::ParseAssignmentExpression(bool accept_IN,
                                               ExpressionClassifier* classifier,
                                               bool* ok) {
+  COST_PREAMBLE();
   // AssignmentExpression ::
   //   ConditionalExpression
   //   ArrowFunction
@@ -2267,7 +2300,7 @@ ParserBase<Traits>::ParseAssignmentExpression(bool accept_IN,
   int lhs_beg_pos = peek_position();
 
   if (peek() == Token::YIELD && is_generator()) {
-    return this->ParseYieldExpression(accept_IN, classifier, ok);
+    return COST(this->ParseYieldExpression(accept_IN, classifier, ok));
   }
 
   FuncNameInferrer::State fni_state(fni_);
@@ -2283,15 +2316,15 @@ ParserBase<Traits>::ParseAssignmentExpression(bool accept_IN,
   if (!is_async && !parenthesized_formals) {
     ArrowFormalParametersUnexpectedToken(&arrow_formals_classifier);
   }
-  ExpressionT expression = this->ParseConditionalExpression(
-      accept_IN, &arrow_formals_classifier, CHECK_OK);
+  ExpressionT expression = COST(this->ParseConditionalExpression(
+      accept_IN, &arrow_formals_classifier, CHECK_OK));
 
   if (is_async && peek_any_identifier() && PeekAhead() == Token::ARROW) {
     // async Identifier => AsyncConciseBody
     IdentifierT name =
         ParseAndClassifyIdentifier(&arrow_formals_classifier, CHECK_OK);
-    expression = this->ExpressionFromIdentifier(
-        name, position(), scanner()->location().end_pos, scope(), factory());
+    expression = COST(this->ExpressionFromIdentifier(
+        name, position(), scanner()->location().end_pos, scope(), factory()));
   }
 
   if (peek() == Token::ARROW) {
@@ -2330,8 +2363,8 @@ ParserBase<Traits>::ParseAssignmentExpression(bool accept_IN,
       arrow_formals_classifier.RecordDuplicateFormalParameterError(
           duplicate_loc);
     }
-    expression = this->ParseArrowFunctionLiteral(
-        accept_IN, parameters, is_async, arrow_formals_classifier, CHECK_OK);
+    expression = COST(this->ParseArrowFunctionLiteral(
+        accept_IN, parameters, is_async, arrow_formals_classifier, CHECK_OK));
     arrow_formals_classifier.Discard();
     classifier->RecordPatternError(arrow_loc,
                                    MessageTemplate::kUnexpectedToken,
@@ -2392,8 +2425,8 @@ ParserBase<Traits>::ParseAssignmentExpression(bool accept_IN,
 
   ExpressionClassifier rhs_classifier(this);
 
-  ExpressionT right =
-      this->ParseAssignmentExpression(accept_IN, &rhs_classifier, CHECK_OK);
+  ExpressionT right = COST(this->ParseAssignmentExpression(
+      accept_IN, &rhs_classifier, CHECK_OK));
   CheckNoTailCallExpressions(&rhs_classifier, CHECK_OK);
   Traits::RewriteNonPattern(&rhs_classifier, CHECK_OK);
   classifier->Accumulate(
@@ -2434,10 +2467,11 @@ ParserBase<Traits>::ParseAssignmentExpression(bool accept_IN,
     return Traits::RewriteAssignExponentiation(expression, right, pos);
   }
 
-  ExpressionT result = factory()->NewAssignment(op, expression, right, pos);
+  ExpressionT result =
+      COST(factory()->NewAssignment(op, expression, right, pos));
 
   if (is_destructuring_assignment) {
-    result = factory()->NewRewritableExpression(result);
+    result = COST(factory()->NewRewritableExpression(result));
     Traits::QueueDestructuringAssignmentForRewriting(result);
   }
 
@@ -2449,6 +2483,7 @@ typename ParserBase<Traits>::ExpressionT
 ParserBase<Traits>::ParseYieldExpression(bool accept_IN,
                                          ExpressionClassifier* classifier,
                                          bool* ok) {
+  COST_PREAMBLE();
   // YieldExpression ::
   //   'yield' ([no line terminator] '*'? AssignmentExpression)?
   int pos = peek_position();
@@ -2457,8 +2492,8 @@ ParserBase<Traits>::ParseYieldExpression(bool accept_IN,
   classifier->RecordFormalParameterInitializerError(
       scanner()->peek_location(), MessageTemplate::kYieldInParameter);
   Expect(Token::YIELD, CHECK_OK);
-  ExpressionT generator_object =
-      factory()->NewVariableProxy(function_state_->generator_object_variable());
+  ExpressionT generator_object = COST(factory()->NewVariableProxy(
+      function_state_->generator_object_variable()));
   ExpressionT expression = Traits::EmptyExpression();
   bool delegating = false;  // yield*
   if (!scanner()->HasAnyLineTerminatorBeforeNext()) {
@@ -2478,7 +2513,8 @@ ParserBase<Traits>::ParseYieldExpression(bool accept_IN,
         if (!delegating) break;
         // Delegating yields require an RHS; fall through.
       default:
-        expression = ParseAssignmentExpression(accept_IN, classifier, CHECK_OK);
+        expression =
+            COST(ParseAssignmentExpression(accept_IN, classifier, CHECK_OK));
         Traits::RewriteNonPattern(classifier, CHECK_OK);
         break;
     }
@@ -2491,8 +2527,9 @@ ParserBase<Traits>::ParseYieldExpression(bool accept_IN,
   expression = Traits::BuildIteratorResult(expression, false);
   // Hackily disambiguate o from o.next and o [Symbol.iterator]().
   // TODO(verwaest): Come up with a better solution.
-  typename Traits::Type::YieldExpression yield = factory()->NewYield(
-      generator_object, expression, pos, Yield::kOnExceptionThrow);
+  typename Traits::Type::YieldExpression yield =
+      COST(factory()->NewYield(
+          generator_object, expression, pos, Yield::kOnExceptionThrow));
   return yield;
 }
 
@@ -2500,6 +2537,7 @@ template <class Traits>
 typename ParserBase<Traits>::ExpressionT
 ParserBase<Traits>::ParseTailCallExpression(ExpressionClassifier* classifier,
                                             bool* ok) {
+  COST_PREAMBLE();
   // TailCallExpression::
   //   'continue' MemberExpression  Arguments
   //   'continue' CallExpression  Arguments
@@ -2509,7 +2547,7 @@ ParserBase<Traits>::ParseTailCallExpression(ExpressionClassifier* classifier,
   int pos = position();
   int sub_expression_pos = peek_position();
   ExpressionT expression =
-      this->ParseLeftHandSideExpression(classifier, CHECK_OK);
+      COST(this->ParseLeftHandSideExpression(classifier, CHECK_OK));
   CheckNoTailCallExpressions(classifier, CHECK_OK);
 
   Scanner::Location loc(pos, scanner()->location().end_pos);
@@ -2564,14 +2602,15 @@ typename ParserBase<Traits>::ExpressionT
 ParserBase<Traits>::ParseConditionalExpression(bool accept_IN,
                                                ExpressionClassifier* classifier,
                                                bool* ok) {
+  COST_PREAMBLE();
   // ConditionalExpression ::
   //   LogicalOrExpression
   //   LogicalOrExpression '?' AssignmentExpression ':' AssignmentExpression
 
   int pos = peek_position();
   // We start using the binary expression parser for prec >= 4 only!
-  ExpressionT expression =
-      this->ParseBinaryExpression(4, accept_IN, classifier, CHECK_OK);
+  ExpressionT expression = COST(this->ParseBinaryExpression(
+      4, accept_IN, classifier, CHECK_OK));
   if (peek() != Token::CONDITIONAL) return expression;
   CheckNoTailCallExpressions(classifier, CHECK_OK);
   Traits::RewriteNonPattern(classifier, CHECK_OK);
@@ -2581,13 +2620,14 @@ ParserBase<Traits>::ParseConditionalExpression(bool accept_IN,
   // In parsing the first assignment expression in conditional
   // expressions we always accept the 'in' keyword; see ECMA-262,
   // section 11.12, page 58.
-  ExpressionT left = ParseAssignmentExpression(true, classifier, CHECK_OK);
+  ExpressionT left = COST(ParseAssignmentExpression(true, classifier,
+                                                    CHECK_OK));
   Traits::RewriteNonPattern(classifier, CHECK_OK);
   Expect(Token::COLON, CHECK_OK);
   ExpressionT right =
-      ParseAssignmentExpression(accept_IN, classifier, CHECK_OK);
+      COST(ParseAssignmentExpression(accept_IN, classifier, CHECK_OK));
   Traits::RewriteNonPattern(classifier, CHECK_OK);
-  return factory()->NewConditional(expression, left, right, pos);
+  return COST(factory()->NewConditional(expression, left, right, pos));
 }
 
 
@@ -2597,8 +2637,9 @@ typename ParserBase<Traits>::ExpressionT
 ParserBase<Traits>::ParseBinaryExpression(int prec, bool accept_IN,
                                           ExpressionClassifier* classifier,
                                           bool* ok) {
+  COST_PREAMBLE();
   DCHECK(prec >= 4);
-  ExpressionT x = this->ParseUnaryExpression(classifier, CHECK_OK);
+  ExpressionT x = COST(this->ParseUnaryExpression(classifier, CHECK_OK));
   for (int prec1 = Precedence(peek(), accept_IN); prec1 >= prec; prec1--) {
     // prec1 >= 4
     while (Precedence(peek(), accept_IN) == prec1) {
@@ -2611,8 +2652,8 @@ ParserBase<Traits>::ParseBinaryExpression(int prec, bool accept_IN,
 
       const bool is_right_associative = op == Token::EXP;
       const int next_prec = is_right_associative ? prec1 : prec1 + 1;
-      ExpressionT y =
-          ParseBinaryExpression(next_prec, accept_IN, classifier, CHECK_OK);
+      ExpressionT y = COST(ParseBinaryExpression(
+          next_prec, accept_IN, classifier, CHECK_OK));
       if (op != Token::OR && op != Token::AND) {
         CheckNoTailCallExpressions(classifier, CHECK_OK);
       }
@@ -2634,16 +2675,16 @@ ParserBase<Traits>::ParseBinaryExpression(int prec, bool accept_IN,
           case Token::NE_STRICT: cmp = Token::EQ_STRICT; break;
           default: break;
         }
-        x = factory()->NewCompareOperation(cmp, x, y, pos);
+        x = COST(factory()->NewCompareOperation(cmp, x, y, pos));
         if (cmp != op) {
           // The comparison was negated - add a NOT.
-          x = factory()->NewUnaryOperation(Token::NOT, x, pos);
+          x = COST(factory()->NewUnaryOperation(Token::NOT, x, pos));
         }
       } else if (op == Token::EXP) {
         x = Traits::RewriteExponentiation(x, y, pos);
       } else {
         // We have a "normal" binary operation.
-        x = factory()->NewBinaryOperation(op, x, y, pos);
+        x = COST(factory()->NewBinaryOperation(op, x, y, pos));
       }
     }
   }
@@ -2655,6 +2696,7 @@ template <class Traits>
 typename ParserBase<Traits>::ExpressionT
 ParserBase<Traits>::ParseUnaryExpression(ExpressionClassifier* classifier,
                                          bool* ok) {
+  COST_PREAMBLE();
   // UnaryExpression ::
   //   PostfixExpression
   //   'delete' UnaryExpression
@@ -2675,7 +2717,7 @@ ParserBase<Traits>::ParseUnaryExpression(ExpressionClassifier* classifier,
 
     op = Next();
     int pos = position();
-    ExpressionT expression = ParseUnaryExpression(classifier, CHECK_OK);
+    ExpressionT expression = COST(ParseUnaryExpression(classifier, CHECK_OK));
     CheckNoTailCallExpressions(classifier, CHECK_OK);
     Traits::RewriteNonPattern(classifier, CHECK_OK);
 
@@ -2695,13 +2737,14 @@ ParserBase<Traits>::ParseUnaryExpression(ExpressionClassifier* classifier,
     }
 
     // Allow Traits do rewrite the expression.
-    return this->BuildUnaryExpression(expression, op, pos, factory());
+    return COST(this->BuildUnaryExpression(expression, op, pos, factory()));
   } else if (Token::IsCountOp(op)) {
     BindingPatternUnexpectedToken(classifier);
     ArrowFormalParametersUnexpectedToken(classifier);
     op = Next();
     int beg_pos = peek_position();
-    ExpressionT expression = this->ParseUnaryExpression(classifier, CHECK_OK);
+    ExpressionT expression =
+        COST(this->ParseUnaryExpression(classifier, CHECK_OK));
     CheckNoTailCallExpressions(classifier, CHECK_OK);
     expression = this->CheckAndRewriteReferenceExpression(
         expression, beg_pos, scanner()->location().end_pos,
@@ -2709,10 +2752,10 @@ ParserBase<Traits>::ParseUnaryExpression(ExpressionClassifier* classifier,
     this->MarkExpressionAsAssigned(expression);
     Traits::RewriteNonPattern(classifier, CHECK_OK);
 
-    return factory()->NewCountOperation(op,
-                                        true /* prefix */,
-                                        expression,
-                                        position());
+    return COST(factory()->NewCountOperation(op,
+                                             true /* prefix */,
+                                             expression,
+                                             position()));
 
   } else if (is_async_function() && peek() == Token::AWAIT) {
     int beg_pos = peek_position();
@@ -2734,8 +2777,8 @@ ParserBase<Traits>::ParseUnaryExpression(ExpressionClassifier* classifier,
             Scanner::Location(beg_pos, scanner()->location().end_pos),
             MessageTemplate::kAwaitBindingIdentifier);
 
-        return this->ExpressionFromIdentifier(
-            name, beg_pos, scanner()->location().end_pos, scope(), factory());
+        return COST(this->ExpressionFromIdentifier(
+            name, beg_pos, scanner()->location().end_pos, scope(), factory()));
       }
       default:
         break;
@@ -2744,14 +2787,14 @@ ParserBase<Traits>::ParseUnaryExpression(ExpressionClassifier* classifier,
     int await_pos = peek_position();
     Consume(Token::AWAIT);
 
-    ExpressionT value = ParseUnaryExpression(classifier, CHECK_OK);
+    ExpressionT value = COST(ParseUnaryExpression(classifier, CHECK_OK));
 
     classifier->RecordFormalParameterInitializerError(
         Scanner::Location(beg_pos, scanner()->location().end_pos),
         MessageTemplate::kAwaitExpressionFormalParameter);
     return Traits::RewriteAwaitExpression(value, await_pos);
   } else {
-    return this->ParsePostfixExpression(classifier, ok);
+    return COST(this->ParsePostfixExpression(classifier, ok));
   }
 }
 
@@ -2760,12 +2803,13 @@ template <class Traits>
 typename ParserBase<Traits>::ExpressionT
 ParserBase<Traits>::ParsePostfixExpression(ExpressionClassifier* classifier,
                                            bool* ok) {
+  COST_PREAMBLE();
   // PostfixExpression ::
   //   LeftHandSideExpression ('++' | '--')?
 
   int lhs_beg_pos = peek_position();
   ExpressionT expression =
-      this->ParseLeftHandSideExpression(classifier, CHECK_OK);
+      COST(this->ParseLeftHandSideExpression(classifier, CHECK_OK));
   if (!scanner()->HasAnyLineTerminatorBeforeNext() &&
       Token::IsCountOp(peek())) {
     CheckNoTailCallExpressions(classifier, CHECK_OK);
@@ -2780,10 +2824,10 @@ ParserBase<Traits>::ParsePostfixExpression(ExpressionClassifier* classifier,
 
     Token::Value next = Next();
     expression =
-        factory()->NewCountOperation(next,
-                                     false /* postfix */,
-                                     expression,
-                                     position());
+        COST(factory()->NewCountOperation(next,
+                                          false /* postfix */,
+                                          expression,
+                                          position()));
   }
   return expression;
 }
@@ -2792,16 +2836,17 @@ template <class Traits>
 typename ParserBase<Traits>::ExpressionT
 ParserBase<Traits>::ParseLeftHandSideExpression(
     ExpressionClassifier* classifier, bool* ok) {
+  COST_PREAMBLE();
   // LeftHandSideExpression ::
   //   (NewExpression | MemberExpression) ...
 
   if (FLAG_harmony_explicit_tailcalls && peek() == Token::CONTINUE) {
-    return this->ParseTailCallExpression(classifier, ok);
+    return COST(this->ParseTailCallExpression(classifier, ok));
   }
 
   bool is_async = false;
-  ExpressionT result = this->ParseMemberWithNewPrefixesExpression(
-      classifier, &is_async, CHECK_OK);
+  ExpressionT result = COST(this->ParseMemberWithNewPrefixesExpression(
+      classifier, &is_async, CHECK_OK));
 
   while (true) {
     switch (peek()) {
@@ -2812,9 +2857,9 @@ ParserBase<Traits>::ParseLeftHandSideExpression(
         ArrowFormalParametersUnexpectedToken(classifier);
         Consume(Token::LBRACK);
         int pos = position();
-        ExpressionT index = ParseExpression(true, classifier, CHECK_OK);
+        ExpressionT index = COST(ParseExpression(true, classifier, CHECK_OK));
         Traits::RewriteNonPattern(classifier, CHECK_OK);
-        result = factory()->NewProperty(result, index, pos);
+        result = COST(factory()->NewProperty(result, index, pos));
         Expect(Token::RBRACK, CHECK_OK);
         break;
       }
@@ -2887,15 +2932,16 @@ ParserBase<Traits>::ParseLeftHandSideExpression(
           args = Traits::PrepareSpreadArguments(args);
           result = Traits::SpreadCall(result, args, pos);
         } else {
-          result = factory()->NewCall(result, args, pos);
+          result = COST(factory()->NewCall(result, args, pos));
         }
 
         // Explicit calls to the super constructor using super() perform an
         // implicit binding assignment to the 'this' variable.
         if (is_super_call) {
-          ExpressionT this_expr = this->ThisExpression(scope(), factory(), pos);
-          result =
-              factory()->NewAssignment(Token::INIT, this_expr, result, pos);
+          ExpressionT this_expr = COST(this->ThisExpression(scope(), factory(),
+                                                            pos));
+          result = COST(factory()->NewAssignment(Token::INIT, this_expr, result,
+                                                 pos));
         }
 
         if (fni_ != NULL) fni_->RemoveLastFunction();
@@ -2910,8 +2956,8 @@ ParserBase<Traits>::ParseLeftHandSideExpression(
         Consume(Token::PERIOD);
         int pos = position();
         IdentifierT name = ParseIdentifierName(CHECK_OK);
-        result = factory()->NewProperty(
-            result, factory()->NewStringLiteral(name, pos), pos);
+        result = COST(factory()->NewProperty(
+            result, factory()->NewStringLiteral(name, pos), pos));
         if (fni_ != NULL) this->PushLiteralName(fni_, name);
         break;
       }
@@ -2922,7 +2968,8 @@ ParserBase<Traits>::ParseLeftHandSideExpression(
         Traits::RewriteNonPattern(classifier, CHECK_OK);
         BindingPatternUnexpectedToken(classifier);
         ArrowFormalParametersUnexpectedToken(classifier);
-        result = ParseTemplateLiteral(result, position(), classifier, CHECK_OK);
+        result = COST(ParseTemplateLiteral(
+            result, position(), classifier, CHECK_OK));
         break;
       }
 
@@ -2936,6 +2983,7 @@ template <class Traits>
 typename ParserBase<Traits>::ExpressionT
 ParserBase<Traits>::ParseMemberWithNewPrefixesExpression(
     ExpressionClassifier* classifier, bool* is_async, bool* ok) {
+  COST_PREAMBLE();
   // NewExpression ::
   //   ('new')+ MemberExpression
   //
@@ -2964,12 +3012,12 @@ ParserBase<Traits>::ParseMemberWithNewPrefixesExpression(
     ExpressionT result = this->EmptyExpression();
     if (peek() == Token::SUPER) {
       const bool is_new = true;
-      result = ParseSuperExpression(is_new, classifier, CHECK_OK);
+      result = COST(ParseSuperExpression(is_new, classifier, CHECK_OK));
     } else if (peek() == Token::PERIOD) {
-      return ParseNewTargetExpression(CHECK_OK);
+      return COST(ParseNewTargetExpression(CHECK_OK));
     } else {
-      result = this->ParseMemberWithNewPrefixesExpression(classifier, is_async,
-                                                          CHECK_OK);
+      result = COST(this->ParseMemberWithNewPrefixesExpression(
+          classifier, is_async, CHECK_OK));
     }
     Traits::RewriteNonPattern(classifier, CHECK_OK);
     if (peek() == Token::LPAREN) {
@@ -2980,27 +3028,28 @@ ParserBase<Traits>::ParseMemberWithNewPrefixesExpression(
 
       if (spread_pos.IsValid()) {
         args = Traits::PrepareSpreadArguments(args);
-        result = Traits::SpreadCallNew(result, args, new_pos);
+        result = COST(Traits::SpreadCallNew(result, args, new_pos));
       } else {
-        result = factory()->NewCallNew(result, args, new_pos);
+        result = COST(factory()->NewCallNew(result, args, new_pos));
       }
       // The expression can still continue with . or [ after the arguments.
-      result = this->ParseMemberExpressionContinuation(result, is_async,
-                                                       classifier, CHECK_OK);
+      result = COST(this->ParseMemberExpressionContinuation(
+          result, is_async, classifier, CHECK_OK));
       return result;
     }
     // NewExpression without arguments.
-    return factory()->NewCallNew(result, this->NewExpressionList(0, zone_),
-                                 new_pos);
+    return COST(factory()->NewCallNew(
+        result, this->NewExpressionList(0, zone_), new_pos));
   }
   // No 'new' or 'super' keyword.
-  return this->ParseMemberExpression(classifier, is_async, ok);
+  return COST(this->ParseMemberExpression(classifier, is_async, ok));
 }
 
 template <class Traits>
 typename ParserBase<Traits>::ExpressionT
 ParserBase<Traits>::ParseMemberExpression(ExpressionClassifier* classifier,
                                           bool* is_async, bool* ok) {
+  COST_PREAMBLE();
   // MemberExpression ::
   //   (PrimaryExpression | FunctionLiteral | ClassLiteral)
   //     ('[' Expression ']' | '.' Identifier | Arguments | TemplateLiteral)*
@@ -3031,7 +3080,7 @@ ParserBase<Traits>::ParseMemberExpression(ExpressionClassifier* classifier,
         return this->EmptyExpression();
       }
 
-      return this->FunctionSentExpression(scope(), factory(), pos);
+      return COST(this->FunctionSentExpression(scope(), factory(), pos));
     }
 
     bool is_generator = Check(Token::MUL);
@@ -3046,22 +3095,22 @@ ParserBase<Traits>::ParseMemberExpression(ExpressionClassifier* classifier,
       function_name_location = scanner()->location();
       function_type = FunctionLiteral::kNamedExpression;
     }
-    result = this->ParseFunctionLiteral(
+    result = COST(this->ParseFunctionLiteral(
         name, function_name_location,
         is_strict_reserved_name ? kFunctionNameIsStrictReserved
                                 : kFunctionNameValidityUnknown,
         is_generator ? FunctionKind::kGeneratorFunction
                      : FunctionKind::kNormalFunction,
-        function_token_position, function_type, language_mode(), CHECK_OK);
+        function_token_position, function_type, language_mode(), CHECK_OK));
   } else if (peek() == Token::SUPER) {
     const bool is_new = false;
-    result = ParseSuperExpression(is_new, classifier, CHECK_OK);
+    result = COST(ParseSuperExpression(is_new, classifier, CHECK_OK));
   } else {
-    result = ParsePrimaryExpression(classifier, is_async, CHECK_OK);
+    result = COST(ParsePrimaryExpression(classifier, is_async, CHECK_OK));
   }
 
-  result =
-      ParseMemberExpressionContinuation(result, is_async, classifier, CHECK_OK);
+  result = COST(ParseMemberExpressionContinuation(
+      result, is_async, classifier, CHECK_OK));
   return result;
 }
 
@@ -3071,6 +3120,7 @@ typename ParserBase<Traits>::ExpressionT
 ParserBase<Traits>::ParseSuperExpression(bool is_new,
                                          ExpressionClassifier* classifier,
                                          bool* ok) {
+  COST_PREAMBLE();
   Expect(Token::SUPER, CHECK_OK);
   int pos = position();
 
@@ -3080,7 +3130,8 @@ ParserBase<Traits>::ParseSuperExpression(bool is_new,
       IsClassConstructor(kind)) {
     if (peek() == Token::PERIOD || peek() == Token::LBRACK) {
       scope->RecordSuperPropertyUsage();
-      return this->NewSuperPropertyReference(this->scope(), factory(), pos);
+      return COST(this->NewSuperPropertyReference(this->scope(), factory(),
+                                                  pos));
     }
     // new super() is never allowed.
     // super() is only allowed in derived constructor
@@ -3088,7 +3139,7 @@ ParserBase<Traits>::ParseSuperExpression(bool is_new,
       // TODO(rossberg): This might not be the correct FunctionState for the
       // method here.
       function_state_->set_super_location(scanner()->location());
-      return this->NewSuperCallReference(this->scope(), factory(), pos);
+      return COST(this->NewSuperCallReference(this->scope(), factory(), pos));
     }
   }
 
@@ -3114,6 +3165,7 @@ void ParserBase<Traits>::ExpectMetaProperty(Vector<const char> property_name,
 template <class Traits>
 typename ParserBase<Traits>::ExpressionT
 ParserBase<Traits>::ParseNewTargetExpression(bool* ok) {
+  COST_PREAMBLE();
   int pos = position();
   ExpectMetaProperty(CStrVector("target"), "new.target", pos, CHECK_OK);
 
@@ -3124,7 +3176,7 @@ ParserBase<Traits>::ParseNewTargetExpression(bool* ok) {
     return this->EmptyExpression();
   }
 
-  return this->NewTargetExpression(scope(), factory(), pos);
+  return COST(this->NewTargetExpression(scope(), factory(), pos));
 }
 
 template <class Traits>
@@ -3132,6 +3184,7 @@ typename ParserBase<Traits>::ExpressionT
 ParserBase<Traits>::ParseMemberExpressionContinuation(
     ExpressionT expression, bool* is_async, ExpressionClassifier* classifier,
     bool* ok) {
+  COST_PREAMBLE();
   // Parses this part of MemberExpression:
   // ('[' Expression ']' | '.' Identifier | TemplateLiteral)*
   while (true) {
@@ -3144,9 +3197,10 @@ ParserBase<Traits>::ParseMemberExpressionContinuation(
 
         Consume(Token::LBRACK);
         int pos = position();
-        ExpressionT index = this->ParseExpression(true, classifier, CHECK_OK);
+        ExpressionT index =
+            COST(this->ParseExpression(true, classifier, CHECK_OK));
         Traits::RewriteNonPattern(classifier, CHECK_OK);
-        expression = factory()->NewProperty(expression, index, pos);
+        expression = COST(factory()->NewProperty(expression, index, pos));
         if (fni_ != NULL) {
           this->PushPropertyName(fni_, index);
         }
@@ -3162,8 +3216,8 @@ ParserBase<Traits>::ParseMemberExpressionContinuation(
         Consume(Token::PERIOD);
         int pos = position();
         IdentifierT name = ParseIdentifierName(CHECK_OK);
-        expression = factory()->NewProperty(
-            expression, factory()->NewStringLiteral(name, pos), pos);
+        expression = COST(factory()->NewProperty(
+            expression, factory()->NewStringLiteral(name, pos), pos));
         if (fni_ != NULL) {
           this->PushLiteralName(fni_, name);
         }
@@ -3186,8 +3240,8 @@ ParserBase<Traits>::ParseMemberExpressionContinuation(
             expression->AsFunctionLiteral()->set_should_eager_compile();
           }
         }
-        expression =
-            ParseTemplateLiteral(expression, pos, classifier, CHECK_OK);
+        expression = COST(ParseTemplateLiteral(expression, pos,
+                                               classifier, CHECK_OK));
         break;
       }
       case Token::ILLEGAL: {
@@ -3207,12 +3261,13 @@ ParserBase<Traits>::ParseMemberExpressionContinuation(
 template <class Traits>
 void ParserBase<Traits>::ParseFormalParameter(
     FormalParametersT* parameters, ExpressionClassifier* classifier, bool* ok) {
+  COST_PREAMBLE();
   // FormalParameter[Yield,GeneratorParameter] :
   //   BindingElement[?Yield, ?GeneratorParameter]
   bool is_rest = parameters->has_rest;
 
   ExpressionT pattern =
-      ParsePrimaryExpression(classifier, CHECK_OK_CUSTOM(Void));
+      COST(ParsePrimaryExpression(classifier, CHECK_OK_CUSTOM(Void)));
   ValidateBindingPattern(classifier, CHECK_OK_CUSTOM(Void));
 
   if (!Traits::IsIdentifier(pattern)) {
@@ -3224,8 +3279,8 @@ void ParserBase<Traits>::ParseFormalParameter(
   ExpressionT initializer = Traits::EmptyExpression();
   if (!is_rest && Check(Token::ASSIGN)) {
     ExpressionClassifier init_classifier(this);
-    initializer = ParseAssignmentExpression(true, &init_classifier,
-                                            CHECK_OK_CUSTOM(Void));
+    initializer = COST(ParseAssignmentExpression(true, &init_classifier,
+                                                 CHECK_OK_CUSTOM(Void)));
     Traits::RewriteNonPattern(&init_classifier, CHECK_OK_CUSTOM(Void));
     ValidateFormalParameterInitializer(&init_classifier, CHECK_OK_CUSTOM(Void));
     parameters->is_simple = false;
@@ -3348,6 +3403,7 @@ typename ParserBase<Traits>::ExpressionT
 ParserBase<Traits>::ParseArrowFunctionLiteral(
     bool accept_IN, const FormalParametersT& formal_parameters, bool is_async,
     const ExpressionClassifier& formals_classifier, bool* ok) {
+  COST_PREAMBLE();
   if (peek() == Token::ARROW && scanner_->HasAnyLineTerminatorBeforeNext()) {
     // ASI inserts `;` after arrow parameters if a line terminator is found.
     // `=> ...` is never a valid expression, so report as syntax error.
@@ -3415,7 +3471,7 @@ ParserBase<Traits>::ParseArrowFunctionLiteral(
         Traits::RewriteNonPattern(&classifier, CHECK_OK);
       } else {
         ExpressionT expression =
-            ParseAssignmentExpression(accept_IN, &classifier, CHECK_OK);
+            COST(ParseAssignmentExpression(accept_IN, &classifier, CHECK_OK));
         Traits::RewriteNonPattern(&classifier, CHECK_OK);
         body->Add(factory()->NewReturnStatement(expression, pos), zone());
         if (allow_tailcalls() && !is_sloppy(language_mode())) {
@@ -3449,13 +3505,13 @@ ParserBase<Traits>::ParseArrowFunctionLiteral(
     Traits::RewriteDestructuringAssignments();
   }
 
-  FunctionLiteralT function_literal = factory()->NewFunctionLiteral(
+  FunctionLiteralT function_literal = COST(factory()->NewFunctionLiteral(
       this->EmptyIdentifierString(), formal_parameters.scope, body,
       materialized_literal_count, expected_property_count, num_parameters,
       FunctionLiteral::kNoDuplicateParameters,
       FunctionLiteral::kAnonymousExpression,
       FunctionLiteral::kShouldLazyCompile, arrow_kind,
-      formal_parameters.scope->start_position());
+      formal_parameters.scope->start_position()));
 
   function_literal->set_function_token_position(
       formal_parameters.scope->start_position());
@@ -3472,6 +3528,7 @@ typename ParserBase<Traits>::ExpressionT
 ParserBase<Traits>::ParseTemplateLiteral(ExpressionT tag, int start,
                                          ExpressionClassifier* classifier,
                                          bool* ok) {
+  COST_PREAMBLE();
   // A TemplateLiteral is made up of 0 or more TEMPLATE_SPAN tokens (literal
   // text followed by a substitution expression), finalized by a single
   // TEMPLATE_TAIL.
@@ -3493,7 +3550,7 @@ ParserBase<Traits>::ParseTemplateLiteral(ExpressionT tag, int start,
     CheckTemplateOctalLiteral(pos, peek_position(), CHECK_OK);
     typename Traits::TemplateLiteralState ts = Traits::OpenTemplateLiteral(pos);
     Traits::AddTemplateSpan(&ts, true);
-    return Traits::CloseTemplateLiteral(&ts, start, tag);
+    return COST(Traits::CloseTemplateLiteral(&ts, start, tag));
   }
 
   Consume(Token::TEMPLATE_SPAN);
@@ -3523,7 +3580,8 @@ ParserBase<Traits>::ParseTemplateLiteral(ExpressionT tag, int start,
     }
 
     int expr_pos = peek_position();
-    ExpressionT expression = this->ParseExpression(true, classifier, CHECK_OK);
+    ExpressionT expression =
+        COST(this->ParseExpression(true, classifier, CHECK_OK));
     CheckNoTailCallExpressions(classifier, CHECK_OK);
     Traits::RewriteNonPattern(classifier, CHECK_OK);
     Traits::AddTemplateExpression(&ts, expression);
@@ -3560,7 +3618,7 @@ ParserBase<Traits>::ParseTemplateLiteral(ExpressionT tag, int start,
   DCHECK_EQ(next, Token::TEMPLATE_TAIL);
   CheckTemplateOctalLiteral(pos, peek_position(), CHECK_OK);
   // Once we've reached a TEMPLATE_TAIL, we can close the TemplateLiteral.
-  return Traits::CloseTemplateLiteral(&ts, start, tag);
+  return COST(Traits::CloseTemplateLiteral(&ts, start, tag));
 }
 
 

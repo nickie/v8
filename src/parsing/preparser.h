@@ -295,6 +295,9 @@ class PreParserExpression {
   int position() const { return kNoSourcePosition; }
   void set_function_token_position(int position) {}
 
+  void increase_cost(bool inlined) {}
+  operator bool() const { return false; }
+
  private:
   enum Type {
     kExpression,

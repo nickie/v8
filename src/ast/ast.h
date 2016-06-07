@@ -199,6 +199,10 @@ class AstNode: public ZoneObject {
 
   NodeType node_type() const { return node_type_; }
   int position() const { return position_; }
+  int cost(bool inlined) const { return inlined ? cost_inline_ : cost_; }
+  void increase_cost(bool inlined) {
+    if (inlined) ++cost_inline_; else ++cost_;
+  }
 
 #ifdef DEBUG
   void Print(Isolate* isolate);
@@ -218,7 +222,7 @@ class AstNode: public ZoneObject {
 
  protected:
   AstNode(int position, NodeType type)
-      : position_(position), node_type_(type) {}
+      : position_(position), cost_(0), cost_inline_(0), node_type_(type) {}
 
  private:
   // Hidden to prevent accidental usage. It would have to load the
@@ -228,6 +232,8 @@ class AstNode: public ZoneObject {
   friend class CaseClause;  // Generates AST IDs.
 
   int position_;
+  int cost_;
+  int cost_inline_;
   NodeType node_type_;
   // Ends with NodeType which is uint8_t sized. Deriving classes in turn begin
   // sub-int32_t-sized fields for optimum packing efficiency.

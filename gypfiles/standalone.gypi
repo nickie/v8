@@ -741,6 +741,7 @@
           '-pedantic',
           '-Wmissing-field-initializers',
           '-Wno-gnu-zero-variadic-macro-arguments',
+          '-Wno-gnu-statement-expression',
         ],
         'cflags_cc': [
           '-Wnon-virtual-dtor',
