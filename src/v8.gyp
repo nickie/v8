@@ -1014,6 +1014,8 @@
         'optimizing-compile-dispatcher.h',
         'ostreams.cc',
         'ostreams.h',
+        'parsing/cost.cc',
+        'parsing/cost.h',
         'parsing/expression-classifier.h',
         'parsing/func-name-inferrer.cc',
         'parsing/func-name-inferrer.h',

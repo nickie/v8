@@ -866,7 +866,6 @@ class CostCounter: public AstTraversalVisitor {
   }
 };
 
-
 FunctionLiteral* Parser::ParseProgram(Isolate* isolate, ParseInfo* info) {
   COST_PREAMBLE();
   // TODO(bmeurer): We temporarily need to pass allow_nesting = true here,
@@ -917,6 +916,8 @@ FunctionLiteral* Parser::ParseProgram(Isolate* isolate, ParseInfo* info) {
   }
   HandleSourceURLComments(isolate, info->script());
 
+  CostCounter c(isolate);
+  c.Visit(result);
   if (FLAG_trace_parse && result != NULL) {
     double ms = timer.Elapsed().InMillisecondsF();
     if (info->is_eval()) {
@@ -929,8 +930,7 @@ FunctionLiteral* Parser::ParseProgram(Isolate* isolate, ParseInfo* info) {
       PrintF("[parsing script");
     }
     PrintF(" - took %0.3f ms]\n", ms);
-    CostCounter c(isolate);
-    c.Visit(result);
+    c.Report();
   }
   if (produce_cached_parse_data()) {
     if (result != NULL) *info->cached_data() = recorder.GetScriptData();
@@ -1077,11 +1077,14 @@ FunctionLiteral* Parser::ParseLazy(Isolate* isolate, ParseInfo* info) {
     result = COST(ParseLazy(isolate, info, &stream));
   }
 
+  CostCounter c(isolate);
+  c.Visit(result);
   if (FLAG_trace_parse && result != NULL) {
     double ms = timer.Elapsed().InMillisecondsF();
     base::SmartArrayPointer<char> name_chars =
         result->debug_name()->ToCString();
     PrintF("[parsing function: %s - took %0.3f ms]\n", name_chars.get(), ms);
+    c.Report();
   }
   return result;
 }

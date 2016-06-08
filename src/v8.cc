@@ -20,6 +20,7 @@
 #include "src/runtime-profiler.h"
 #include "src/snapshot/natives.h"
 #include "src/snapshot/snapshot.h"
+#include "src/parsing/cost.h"
 
 
 namespace v8 {
@@ -42,6 +43,8 @@ bool V8::Initialize() {
 
 
 void V8::TearDown() {
+  PrintF("Totals for AST generation:\n");
+  CostCounter::Totals();
   Bootstrapper::TearDownExtensions();
   ElementsAccessor::TearDown();
   LOperand::TearDownCaches();

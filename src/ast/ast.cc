@@ -958,6 +958,7 @@ void AstTraversalVisitor::VisitDeclarations(ZoneList<Declaration*>* decls) {
 }
 
 void AstTraversalVisitor::VisitStatements(ZoneList<Statement*>* stmts) {
+  if (stmts == nullptr) return;
   for (int i = 0; i < stmts->length(); ++i) {
     Statement* stmt = stmts->at(i);
     RECURSE(Visit(stmt));
