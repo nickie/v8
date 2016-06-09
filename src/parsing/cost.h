@@ -5,6 +5,9 @@
 #ifndef V8_PARSING_COST_H_
 #define V8_PARSING_COST_H_
 
+#include <iostream>
+#include <iomanip>
+
 #include "src/ast/ast.h"
 
 namespace v8 {
@@ -26,22 +29,28 @@ class CostCounter: public AstTraversalVisitor {
     if (!CheckStackOverflow()) node->Accept(this);
   }
 
-  void Report() const { CostCounter::Report(counters_); }
-  static void Totals() { CostCounter::Report(totals_); }
+  void Report() const { CostCounter::Report(counters_, std::cout); }
+  static void Totals() { CostCounter::Report(totals_, std::cout); }
+  static void Totals(std::ostream& os) { CostCounter::Report(totals_, os); }
+  static void ResetTotals() { totals_.assign(CostCounter::MAX, 0); }
 
  private:
   template<class Alloc>
-  static void Report(const std::vector<int, Alloc>& counters) {
+  static void Report(const std::vector<int, Alloc>& counters,
+                     std::ostream& os) {
     long double sum = 0;
     long double count = 0;
-    PrintF("  cost ");
+    os << "  cost ";
     for (int i = 0; i <= CostCounter::MAX; i++)
       if (counters[i] > 0) {
-        PrintF("%d:%d, ", i, counters[i]);
+        os << i << ":" << counters[i] << ", ";
         sum += (long double) i * counters[i];
         count += counters[i];
       }
-    PrintF("average: %0.3Lf.\n", (long double) (count > 0 ? sum / count : 0));
+    os << "average: "
+       << std::fixed << std::setprecision(3)
+       << (long double) (count > 0 ? sum / count : 0)
+       << "." << std::endl;
   }
 
   static const int MAX = 64;

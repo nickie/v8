@@ -603,6 +603,8 @@ RUNTIME_FUNCTION(Runtime_GetAndResetRuntimeCallStats) {
     OFStream stats_stream(f);
     isolate->counters()->runtime_call_stats()->Print(stats_stream);
     isolate->counters()->runtime_call_stats()->Reset();
+    CostCounter::Totals(stats_stream);
+    CostCounter::ResetTotals();
     if (args[0]->IsString())
       std::fclose(f);
     else
