@@ -31,16 +31,18 @@ class CostCounter: public AstTraversalVisitor {
 
   void Report() const { CostCounter::Report(counters_, std::cout); }
   static void Totals() { CostCounter::Report(totals_, std::cout); }
-  static void Totals(std::ostream& os) { CostCounter::Report(totals_, os); }
+  static void Totals(std::ostream& os, const char* msg = "AST cost ") {
+    CostCounter::Report(totals_, os, msg);
+  }
   static void ResetTotals() { totals_.assign(CostCounter::MAX, 0); }
 
  private:
   template<class Alloc>
   static void Report(const std::vector<int, Alloc>& counters,
-                     std::ostream& os) {
+                     std::ostream& os, const char* msg = "  cost ") {
     long double sum = 0;
     long double count = 0;
-    os << "  cost ";
+    os << msg;
     for (int i = 0; i <= CostCounter::MAX; i++)
       if (counters[i] > 0) {
         os << i << ":" << counters[i] << ", ";
