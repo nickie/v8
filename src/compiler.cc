@@ -1095,6 +1095,10 @@ Handle<SharedFunctionInfo> CompileToplevel(CompilationInfo* info) {
 
     FunctionLiteral* lit = parse_info->literal();
 
+    // Don't compile, just parse...
+    if (print_function_boundaries)
+      return NewSharedFunctionInfoForLiteral(isolate, lit, script);
+
     // Measure how long it takes to do the compilation; only take the
     // rest of the function into account to avoid overlap with the
     // parsing statistics.

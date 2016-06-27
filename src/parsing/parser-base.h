@@ -18,6 +18,8 @@
 namespace v8 {
 namespace internal {
 
+extern bool print_function_boundaries;
+extern bool print_scanner_symbols;
 
 enum FunctionNameValidity {
   kFunctionNameIsStrictReserved,
@@ -3350,6 +3352,7 @@ ParserBase<Traits>::ParseArrowFunctionLiteral(
     this->ReindexLiterals(formal_parameters);
 
     Expect(Token::ARROW, CHECK_OK);
+    int body_start = position();
 
     if (peek() == Token::LBRACE) {
       // Multiple statement body
@@ -3401,6 +3404,9 @@ ParserBase<Traits>::ParseArrowFunctionLiteral(
       expected_property_count = function_state.expected_property_count();
       this->MarkCollectedTailCallExpressions();
     }
+    if (print_function_boundaries)
+      std::fprintf(stderr, "base, arrow function boundaries: %d, %d\n",
+                   body_start, scanner()->location().end_pos);
     super_loc = function_state.super_location();
 
     formal_parameters.scope->set_end_position(scanner()->location().end_pos);

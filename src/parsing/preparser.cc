@@ -120,9 +120,13 @@ PreParser::PreParseResult PreParser::PreParseLazyFunction(
   FunctionState function_state(&function_state_, &scope_, function_scope, kind,
                                &function_factory);
   DCHECK_EQ(Token::LBRACE, scanner()->current_token());
+  int body_start = position();
   bool ok = true;
   int start_position = peek_position();
   ParseLazyFunctionLiteralBody(&ok, bookmark);
+  if (print_function_boundaries)
+    std::fprintf(stderr, "preparser, lazy function boundaries: %d, %d\n",
+                 body_start, scanner()->peek_location().end_pos);
   use_counts_ = nullptr;
   if (bookmark && bookmark->HasBeenReset()) {
     // Do nothing, as we've just aborted scanning this function.
@@ -1121,12 +1125,16 @@ PreParser::Expression PreParser::ParseFunctionLiteral(
                            !function_state_->this_function_is_parenthesized());
 
   Expect(Token::LBRACE, CHECK_OK);
+  int body_start = position();
   if (is_lazily_parsed) {
     ParseLazyFunctionLiteralBody(CHECK_OK);
   } else {
     ParseStatementList(Token::RBRACE, CHECK_OK);
   }
   Expect(Token::RBRACE, CHECK_OK);
+  if (print_function_boundaries)
+    std::fprintf(stderr, "preparser, eager function boundaries: %d, %d\n",
+                 body_start, scanner()->location().end_pos);
 
   // Parsing the body may change the language mode in our scope.
   language_mode = function_scope->language_mode();

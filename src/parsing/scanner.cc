@@ -42,15 +42,24 @@ Scanner::Scanner(UnicodeCache* unicode_cache)
       octal_pos_(Location::invalid()),
       decimal_with_leading_zero_pos_(Location::invalid()),
       found_html_comment_(false),
-      allow_harmony_exponentiation_operator_(false) {
+      allow_harmony_exponentiation_operator_(false),
+      logfile_(NULL) {
   bookmark_current_.literal_chars = &bookmark_current_literal_;
   bookmark_current_.raw_literal_chars = &bookmark_current_raw_literal_;
   bookmark_next_.literal_chars = &bookmark_next_literal_;
   bookmark_next_.raw_literal_chars = &bookmark_next_raw_literal_;
 }
 
+Scanner::~Scanner() {
+  if (logfile_ != NULL) std::fclose(logfile_);
+}
 
 void Scanner::Initialize(Utf16CharacterStream* source) {
+  if (print_scanner_symbols) {
+    char buf[256];
+    std::sprintf(buf, "scanner_%p.log", (void*) this);
+    logfile_ = std::fopen(buf, "w");
+  }
   source_ = source;
   // Need to capture identifiers in order to recognize "get" and "set"
   // in object literals.
@@ -249,6 +258,7 @@ Token::Value Scanner::Next() {
   current_ = next_;
   if (V8_UNLIKELY(next_next_.token != Token::UNINITIALIZED)) {
     next_ = next_next_;
+    log_next();
     next_next_.token = Token::UNINITIALIZED;
     has_line_terminator_before_next_ = has_line_terminator_after_next_;
     return current_.token;
@@ -260,6 +270,7 @@ Token::Value Scanner::Next() {
     if (token != Token::ILLEGAL) {
       int pos = source_pos();
       next_.token = token;
+      log_next();
       next_.location.beg_pos = pos;
       next_.location.end_pos = pos + 1;
       Advance();
@@ -733,6 +744,7 @@ void Scanner::Scan() {
 
   next_.location.end_pos = source_pos();
   next_.token = token;
+  log_next();
 }
 
 
@@ -951,6 +963,7 @@ Token::Value Scanner::ScanTemplateSpan() {
   literal.Complete();
   next_.location.end_pos = source_pos();
   next_.token = result;
+  log_next();
   return result;
 }
 

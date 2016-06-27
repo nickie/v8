@@ -358,6 +358,7 @@ class Scanner {
   static const int kNoOctalLocation = -1;
 
   explicit Scanner(UnicodeCache* scanner_contants);
+  ~Scanner();
 
   void Initialize(Utf16CharacterStream* source);
 
@@ -823,6 +824,20 @@ class Scanner {
 
   MessageTemplate::Template scanner_error_;
   Location scanner_error_location_;
+
+  std::FILE* logfile_;
+  void log_next() {
+    if (logfile_ != NULL) {
+      std::fprintf(logfile_, "%-20s", Token::Name(next_.token));
+      if (next_.literal_chars && is_next_literal_one_byte()) {
+        auto v = next_literal_one_byte_string();
+        for (int i=0; i<v.length(); ++i) std::fprintf(logfile_, "%c", v[i]);
+        std::fprintf(logfile_, "\n");
+      } else {
+        std::fprintf(logfile_, "-\n");
+      }
+    }
+  }
 };
 
 }  // namespace internal

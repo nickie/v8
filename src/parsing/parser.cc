@@ -4268,6 +4268,7 @@ FunctionLiteral* Parser::ParseFunctionLiteral(
     CheckArityRestrictions(arity, kind, formals.has_rest, start_position,
                            formals_end_position, CHECK_OK);
     Expect(Token::LBRACE, CHECK_OK);
+    int body_start = position();
     // Don't include the rest parameter into the function's formal parameter
     // count (esp. the SharedFunctionInfo::internal_formal_parameter_count,
     // which says whether we need to create an arguments adaptor frame).
@@ -4380,6 +4381,9 @@ FunctionLiteral* Parser::ParseFunctionLiteral(
         body = NULL;
       }
     }
+    if (print_function_boundaries)
+      std::fprintf(stderr, "parser, function boundaries: %d, %d\n",
+                   body_start, scanner()->location().end_pos);
 
     // Parsing the body may change the language mode in our scope.
     language_mode = scope->language_mode();
@@ -7005,6 +7009,9 @@ void Parser::Print(AstNode* node) {
   node->Print(Isolate::Current());
 }
 #endif  // DEBUG
+
+bool print_function_boundaries = false;
+bool print_scanner_symbols = false;
 
 }  // namespace internal
 }  // namespace v8
