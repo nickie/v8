@@ -1086,6 +1086,12 @@ Handle<SharedFunctionInfo> CompileToplevel(CompilationInfo* info) {
         parse_info->set_cached_data(nullptr);
         parse_info->set_compile_options(ScriptCompiler::kNoCompileOptions);
       }
+      if (print_function_boundaries) {
+        if (Parser::ParseSimple(parse_info))
+          std::fprintf(stderr, "Parsing simple: success\n");
+        else
+          std::fprintf(stderr, "Parsing simple: error\n");
+      }
       if (!Parser::ParseStatic(parse_info)) {
         return Handle<SharedFunctionInfo>::null();
       }

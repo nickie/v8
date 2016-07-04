@@ -986,6 +986,7 @@
         'parsing/parameter-initializer-rewriter.cc',
         'parsing/parameter-initializer-rewriter.h',
         'parsing/parser-base.h',
+        'parsing/parser-simple.cc',
         'parsing/parser.cc',
         'parsing/parser.h',
         'parsing/pattern-rewriter.cc',
