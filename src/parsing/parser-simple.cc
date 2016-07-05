@@ -45,7 +45,6 @@ class ParserSimple {
   void ParseFunctionOrGenerator();
   void ParseV8Intrinsic();
   void ParseDoExpression();
-  bool ParseExpressionTail();
   void ParseClass();
   void ParsePropertyDefinition(bool in_class);
   void ParsePropertyName(bool* is_get, bool* is_set);
@@ -304,9 +303,57 @@ void ParserSimple::ParseExpressionList() {
 }
 
 void ParserSimple::ParseExpression() {
-  do {
+  while (true) {
     ParseTerm();
-  } while (ParseExpressionTail());
+    while (true) {
+      Token::Value tok = peek();
+      if (tok == Token::COMMA) return;
+      if (Token::IsBinaryOp(tok) || Token::IsCompareOp(tok) ||
+          Token::IsAssignmentOp(tok)) {
+        Next();
+        break;
+      }
+      if (!scanner()->HasAnyLineTerminatorBeforeNext() && Token::IsCountOp(tok)) {
+        Next();
+        continue;
+      }
+      switch (tok) {
+        case Token::LBRACK:
+          Next();
+          if (!Check(Token::RBRACK)) {
+            ParseExpressionList();
+            Expect(Token::RBRACK);
+          }
+          continue;
+        case Token::LPAREN:
+          Next();
+          if (!Check(Token::RPAREN)) {
+            ParseExpressionList();
+            Expect(Token::RPAREN);
+          }
+          continue;
+        case Token::PERIOD:
+          Next();
+          ParseIdentifierName();
+          continue;
+        case Token::TEMPLATE_SPAN:
+        case Token::TEMPLATE_TAIL:
+          ParseTemplateLiteral();
+          continue;
+        case Token::CONDITIONAL:
+          Next();
+          ParseExpression();
+          Expect(Token::COLON);
+          break;
+        case Token::ARROW:
+          ParseConciseBody();
+          return;
+        default:
+          return;
+      }
+      break;
+    }
+  }
 }
 
 void ParserSimple::ParseTerm() {
@@ -546,57 +593,6 @@ void ParserSimple::ParseDoExpression() {
   DCHECK_EQ(peek(), Token::DO);
   Next();
   ParseBlock();
-}
-
-bool ParserSimple::ParseExpressionTail() {
-  while (true) {
-    Token::Value tok = peek();
-    if (tok == Token::COMMA) return false;
-    if (Token::IsBinaryOp(tok) || Token::IsCompareOp(tok) ||
-        Token::IsAssignmentOp(tok)) {
-      Next();
-      return true;
-    }
-    if (!scanner()->HasAnyLineTerminatorBeforeNext() && Token::IsCountOp(tok)) {
-      Next();
-      continue;
-    }
-    switch (tok) {
-      case Token::LBRACK: {
-        Next();
-        if (!Check(Token::RBRACK)) {
-          ParseExpressionList();
-          Expect(Token::RBRACK);
-        }
-        continue;
-      }
-      case Token::LPAREN:
-        Next();
-        if (!Check(Token::RPAREN)) {
-          ParseExpressionList();
-          Expect(Token::RPAREN);
-        }
-        break;
-      case Token::PERIOD:
-        Next();
-        ParseIdentifierName();
-        continue;
-      case Token::TEMPLATE_SPAN:
-      case Token::TEMPLATE_TAIL:
-        ParseTemplateLiteral();
-        continue;
-      case Token::CONDITIONAL:
-        Next();
-        ParseExpression();
-        Expect(Token::COLON);
-        return true;
-      case Token::ARROW:
-        ParseConciseBody();
-        return false;
-      default:
-        return false;
-    }
-  }
 }
 
 void ParserSimple::ParseClass() {
