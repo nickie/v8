@@ -28,50 +28,50 @@ class ParserSimple {
   explicit ParserSimple(ParseInfo* info);
   ~ParserSimple();
 
-  int Parse(Utf16CharacterStream* stream);
+  bool Parse(Utf16CharacterStream* stream);
 
  protected:
-  void ParseScript();
-  void ParseStmtOrDeclList(int end_token);
-  void ParseStmtOrDecl();
-  void ParseExpressionList();
-  void ParseExpression();
-  void ParseTerm();
-  void ParseIdentifierName();
-  void ParseRegExpLiteral();
-  void ParseTemplateLiteral();
-  void ParseArrayLiteral();
-  void ParseObjectLiteral();
-  void ParseFunctionOrGenerator();
-  void ParseV8Intrinsic();
-  void ParseDoExpression();
-  void ParseClass();
-  void ParsePropertyDefinition(bool in_class);
-  void ParsePropertyName(bool* is_get, bool* is_set);
-  void ParseBlock();
-  void ParseIfStatement();
-  void ParseDoWhileStatement();
-  void ParseWhileStatement();
-  void ParseForStatement();
-  void ParseWithStatement();
-  void ParseSwitchStatement();
-  void ParseCaseClause();
-  void ParseDebuggerStatement();
-  void ParseContinueStatement();
-  void ParseBreakStatement();
-  void ParseReturnStatement();
-  void ParseThrowStatement();
-  void ParseTryStatement();
-  void ParseConciseBody();
+  bool ParseScript();
+  bool ParseStmtOrDeclList(int end_token);
+  bool ParseStmtOrDecl();
+  bool ParseExpressionList();
+  bool ParseExpression();
+  bool ParseTerm();
+  bool ParseIdentifierName();
+  bool ParseRegExpLiteral();
+  bool ParseTemplateLiteral();
+  bool ParseArrayLiteral();
+  bool ParseObjectLiteral();
+  bool ParseFunctionOrGenerator();
+  bool ParseV8Intrinsic();
+  bool ParseDoExpression();
+  bool ParseClass();
+  bool ParsePropertyDefinition(bool in_class);
+  bool ParsePropertyName(bool* is_get, bool* is_set);
+  bool ParseBlock();
+  bool ParseIfStatement();
+  bool ParseDoWhileStatement();
+  bool ParseWhileStatement();
+  bool ParseForStatement();
+  bool ParseWithStatement();
+  bool ParseSwitchStatement();
+  bool ParseCaseClause();
+  bool ParseDebuggerStatement();
+  bool ParseContinueStatement();
+  bool ParseBreakStatement();
+  bool ParseReturnStatement();
+  bool ParseThrowStatement();
+  bool ParseTryStatement();
+  bool ParseConciseBody();
 
   // Auxiliary methods
   Token::Value peek();
   Token::Value PeekAhead();
   Token::Value Next();
-  void Error();
+  bool Error();
   bool Check(Token::Value token);
-  void Expect(Token::Value token);
-  void ExpectSemicolon();
+  bool Expect(Token::Value token);
+  bool ExpectSemicolon();
   const AstRawString* GetSymbol();
   bool PeekContextualKeyword(const char* keyword);
 
@@ -140,45 +140,50 @@ bool Parser::ParseSimple(ParseInfo* info) {
     }
   }
 
-  int up_to_position;
+  bool result;
   if (source->IsExternalTwoByteString()) {
     ExternalTwoByteStringUtf16CharacterStream stream(
         Handle<ExternalTwoByteString>::cast(source),
         start_position, end_position);
-    up_to_position = parser.Parse(&stream);
+    result = parser.Parse(&stream);
   } else {
     GenericStringUtf16CharacterStream stream(
         source, start_position, end_position);
-    up_to_position = parser.Parse(&stream);
+    result = parser.Parse(&stream);
   }
   if (FLAG_trace_parse) {
     double ms = timer.Elapsed().InMillisecondsF();
     PrintF("[parsing took %0.3f ms]\n", ms);
   }
-  return up_to_position == end_position;
+  return result;
 }
 
 
 // Parsing functions of the simple parser.
 
-int ParserSimple::Parse(Utf16CharacterStream* stream) {
+bool ParserSimple::Parse(Utf16CharacterStream* stream) {
   std::fprintf(stderr, "Parsing simple: begin\n");
   scanner()->Initialize(stream);
   scanner()->set_allow_harmony_exponentiation_operator(
       FLAG_harmony_exponentiation_operator);
-  ParseScript();
+  bool result = ParseScript();
   std::fprintf(stderr, "Parsing simple: end\n");
-  return scanner()->peek_location().beg_pos;
+  return result;
 }
 
-void ParserSimple::ParseScript() {
-  ParseStmtOrDeclList(Token::EOS);
+#define TRY(call) do {                          \
+    if (!call) return false;                    \
+  } while (false)
+
+bool ParserSimple::ParseScript() {
+  TRY(ParseStmtOrDeclList(Token::EOS));
+  Expect(Token::EOS);
+  return true;
 }
 
-void ParserSimple::ParseStmtOrDeclList(int end_token) {
+bool ParserSimple::ParseStmtOrDeclList(int end_token) {
   bool directive_prologue = true;
   while (peek() != end_token) {
-    if (peek() == Token::EOS) break;
     // Process directives.
     if (directive_prologue) {
       if (peek() == Token::STRING &&
@@ -194,74 +199,75 @@ void ParserSimple::ParseStmtOrDeclList(int end_token) {
       }
     }
     // Process all the rest.
-    ParseStmtOrDecl();
+    TRY(ParseStmtOrDecl());
   }
+  return true;
 }
 
-void ParserSimple::ParseStmtOrDecl() {
+bool ParserSimple::ParseStmtOrDecl() {
   switch (peek()) {
     case Token::SEMICOLON:
       Next();
       break;
     case Token::FUNCTION:
-      ParseExpressionList();
+      TRY(ParseExpressionList());
       break;
     case Token::CLASS:
-      ParseClass();
+      TRY(ParseClass());
       break;
     case Token::CONST:
     case Token::VAR:
       Next();
-      ParseExpressionList();
-      ExpectSemicolon();
+      TRY(ParseExpressionList());
+      TRY(ExpectSemicolon());
       break;
     case Token::LET:
       if (IsNextLetKeyword()) Next();
-      ParseExpressionList();
-      ExpectSemicolon();
+      TRY(ParseExpressionList());
+      TRY(ExpectSemicolon());
       break;
     case Token::LBRACE:
-      ParseBlock();
+      TRY(ParseBlock());
       break;
     case Token::IF:
-      ParseIfStatement();
+      TRY(ParseIfStatement());
       break;
     case Token::DO:
-      ParseDoWhileStatement();
+      TRY(ParseDoWhileStatement());
       break;
     case Token::WHILE:
-      ParseWhileStatement();
+      TRY(ParseWhileStatement());
       break;
     case Token::FOR:
-      ParseForStatement();
+      TRY(ParseForStatement());
       break;
     case Token::CONTINUE:
-      ParseContinueStatement();
+      TRY(ParseContinueStatement());
       break;
     case Token::BREAK:
-      ParseBreakStatement();
+      TRY(ParseBreakStatement());
       break;
     case Token::RETURN:
-      ParseReturnStatement();
+      TRY(ParseReturnStatement());
       break;
     case Token::THROW:
-      ParseThrowStatement();
+      TRY(ParseThrowStatement());
       break;
     case Token::TRY:
-      ParseTryStatement();
+      TRY(ParseTryStatement());
       break;
     case Token::WITH:
-      ParseWithStatement();
+      TRY(ParseWithStatement());
       break;
     case Token::SWITCH:
-      ParseSwitchStatement();
+      TRY(ParseSwitchStatement());
       break;
     case Token::DEBUGGER:
-      ParseDebuggerStatement();
+      TRY(ParseDebuggerStatement());
       break;
     case Token::CASE:
     case Token::DEFAULT:
-      ParseCaseClause();
+      TRY(ParseCaseClause());
       break;
     case Token::ASYNC:
       if (allow_harmony_async_await() && PeekAhead() == Token::FUNCTION &&
@@ -273,14 +279,15 @@ void ParserSimple::ParseStmtOrDecl() {
         Next();
         Next();
       } else {
-        ParseExpressionList();
-        ExpectSemicolon();
+        TRY(ParseExpressionList());
+        TRY(ExpectSemicolon());
       }
       break;
   }
+  return true;
 }
 
-void ParserSimple::ParseExpressionList() {
+bool ParserSimple::ParseExpressionList() {
   while (true) {
     switch (peek()) {
       case Token::COMMA:
@@ -294,20 +301,20 @@ void ParserSimple::ParseExpressionList() {
       case Token::COLON:
         break;
       default:
-        ParseExpression();
+        TRY(ParseExpression());
         if (Check(Token::COMMA)) continue;
         break;
     }
-    break;
+    return true;
   }
 }
 
-void ParserSimple::ParseExpression() {
+bool ParserSimple::ParseExpression() {
   while (true) {
-    ParseTerm();
+    TRY(ParseTerm());
     while (true) {
       Token::Value tok = peek();
-      if (tok == Token::COMMA) return;
+      if (tok == Token::COMMA) return true;
       if (Token::IsBinaryOp(tok) || Token::IsCompareOp(tok) ||
           Token::IsAssignmentOp(tok)) {
         Next();
@@ -321,42 +328,42 @@ void ParserSimple::ParseExpression() {
         case Token::LBRACK:
           Next();
           if (!Check(Token::RBRACK)) {
-            ParseExpressionList();
-            Expect(Token::RBRACK);
+            TRY(ParseExpressionList());
+            TRY(Expect(Token::RBRACK));
           }
           continue;
         case Token::LPAREN:
           Next();
           if (!Check(Token::RPAREN)) {
-            ParseExpressionList();
-            Expect(Token::RPAREN);
+            TRY(ParseExpressionList());
+            TRY(Expect(Token::RPAREN));
           }
           continue;
         case Token::PERIOD:
           Next();
-          ParseIdentifierName();
+          TRY(ParseIdentifierName());
           continue;
         case Token::TEMPLATE_SPAN:
         case Token::TEMPLATE_TAIL:
-          ParseTemplateLiteral();
+          TRY(ParseTemplateLiteral());
           continue;
         case Token::CONDITIONAL:
           Next();
-          ParseExpression();
-          Expect(Token::COLON);
+          TRY(ParseExpression());
+          TRY(Expect(Token::COLON));
           break;
         case Token::ARROW:
-          ParseConciseBody();
-          return;
+          TRY(ParseConciseBody());
+          return true;
         default:
-          return;
+          return true;
       }
       break;
     }
   }
 }
 
-void ParserSimple::ParseTerm() {
+bool ParserSimple::ParseTerm() {
   // Parse all term prefixes.
   while (true) {
     Token::Value tok = peek();
@@ -409,7 +416,7 @@ void ParserSimple::ParseTerm() {
           !scanner()->HasAnyLineTerminatorAfterNext() &&
           PeekAhead() == Token::FUNCTION) {
         Next();
-        ParseFunctionOrGenerator();
+        TRY(ParseFunctionOrGenerator());
         break;
       }
       // Falls through, treating async as an identifier.
@@ -433,47 +440,48 @@ void ParserSimple::ParseTerm() {
       break;
     case Token::ASSIGN_DIV:
     case Token::DIV:
-      ParseRegExpLiteral();
+      TRY(ParseRegExpLiteral());
       break;
     case Token::LBRACK:
-      ParseArrayLiteral();
+      TRY(ParseArrayLiteral());
       break;
     case Token::LBRACE:
-      ParseObjectLiteral();
+      TRY(ParseObjectLiteral());
       break;
     case Token::LPAREN:
       Next();
       if (!Check(Token::RPAREN)) {
-        ParseExpressionList();
-        Expect(Token::RPAREN);
+        TRY(ParseExpressionList());
+        TRY(Expect(Token::RPAREN));
       }
       break;
     case Token::FUNCTION:
       if (allow_harmony_function_sent() && PeekAhead() == Token::PERIOD)
         Next();
       else
-        ParseFunctionOrGenerator();
+        TRY(ParseFunctionOrGenerator());
       break;
     case Token::CLASS:
-      ParseClass();
+      TRY(ParseClass());
       break;
     case Token::TEMPLATE_SPAN:
     case Token::TEMPLATE_TAIL:
-      ParseTemplateLiteral();
+      TRY(ParseTemplateLiteral());
       break;
     case Token::MOD:
-      ParseV8Intrinsic();
+      TRY(ParseV8Intrinsic());
       break;
     case Token::DO:
-      ParseDoExpression();
+      TRY(ParseDoExpression());
       break;
     default:
-      Error();
+      return Error();
       break;
   }
+  return true;
 }
 
-void ParserSimple::ParseIdentifierName() {
+bool ParserSimple::ParseIdentifierName() {
   Token::Value tok = Next();
   switch (tok) {
     case Token::IDENTIFIER:
@@ -488,129 +496,125 @@ void ParserSimple::ParseIdentifierName() {
     case Token::ESCAPED_STRICT_RESERVED_WORD:
       break;
     default:
-      if (!Token::IsKeyword(tok)) Error();
+      if (!Token::IsKeyword(tok)) return Error();
       break;
   }
+  return true;
 }
 
-void ParserSimple::ParseRegExpLiteral() {
+bool ParserSimple::ParseRegExpLiteral() {
   DCHECK(peek() == Token::DIV || peek() == Token::ASSIGN_DIV);
   if (scanner()->ScanRegExpPattern(peek() == Token::ASSIGN_DIV)) {
     scanner()->ScanRegExpFlags();
     Next();
-    return;
+    return true;
   }
-  Error();
+  return Error();
 }
 
-void ParserSimple::ParseTemplateLiteral() {
+bool ParserSimple::ParseTemplateLiteral() {
   DCHECK(peek() == Token::TEMPLATE_SPAN || peek() == Token::TEMPLATE_TAIL);
-  if (Check(Token::TEMPLATE_TAIL)) return;
+  if (Check(Token::TEMPLATE_TAIL)) return true;
   Next();
   Token::Value next;
   do {
     next = peek();
-    if (next == Token::EOS || next == Token::ILLEGAL) {
-      Error();
-      return;
-    }
-    ParseExpressionList();
-    if (peek() != Token::RBRACE) {
-      Error();
-      return;
-    }
+    if (next == Token::EOS || next == Token::ILLEGAL) return Error();
+    TRY(ParseExpressionList());
+    if (peek() != Token::RBRACE) return Error();
     next = scanner()->ScanTemplateContinuation();
     Next();
-    if (next == Token::EOS || next == Token::ILLEGAL) {
-      Error();
-      return;
-    }
+    if (next == Token::EOS || next == Token::ILLEGAL) return Error();
   } while (next == Token::TEMPLATE_SPAN);
   DCHECK_EQ(next, Token::TEMPLATE_TAIL);
+  return true;
 }
 
-void ParserSimple::ParseArrayLiteral() {
+bool ParserSimple::ParseArrayLiteral() {
   DCHECK_EQ(peek(), Token::LBRACK);
   Next();
   if (!Check(Token::RBRACK)) {
-    ParseExpressionList();
-    Expect(Token::RBRACK);
+    TRY(ParseExpressionList());
+    TRY(Expect(Token::RBRACK));
   }
+  return true;
 }
 
-void ParserSimple::ParseObjectLiteral() {
+bool ParserSimple::ParseObjectLiteral() {
   DCHECK_EQ(peek(), Token::LBRACE);
   Next();
-  while (!Check(Token::RBRACE) && peek() != Token::EOS) {
+  while (!Check(Token::RBRACE)) {
     if (Check(Token::COMMA)) continue;
-    ParsePropertyDefinition(false);
+    TRY(ParsePropertyDefinition(false));
   }
+  return true;
 }
 
-void ParserSimple::ParseFunctionOrGenerator() {
+bool ParserSimple::ParseFunctionOrGenerator() {
   DCHECK_EQ(peek(), Token::FUNCTION);
   Next();
   bool generator = Check(Token::MUL);
   USE(generator);  // !!!
   if (peek_any_identifier())
-    ParseIdentifierName();
+    TRY(ParseIdentifierName());
   if (Check(Token::LPAREN)) {
     if (!Check(Token::RPAREN)) {
-      ParseExpressionList();
-      Expect(Token::RPAREN);
+      TRY(ParseExpressionList());
+      TRY(Expect(Token::RPAREN));
     }
     if (Check(Token::LBRACE)) {
       int body_start = scanner()->location().beg_pos;
       if (!Check(Token::RBRACE)) {
-        ParseStmtOrDeclList(Token::RBRACE);
-        Expect(Token::RBRACE);
+        TRY(ParseStmtOrDeclList(Token::RBRACE));
+        TRY(Expect(Token::RBRACE));
       }
       std::fprintf(stderr, "simple, function boundaries: %d, %d\n",
                    body_start, scanner()->location().end_pos);
-      return;
+      return true;
     }
   }
-  Error();
+  return Error();
 }
 
-void ParserSimple::ParseV8Intrinsic() {
+bool ParserSimple::ParseV8Intrinsic() {
   DCHECK_EQ(peek(), Token::MOD);
   Next();
   if (peek_any_identifier()) {
-    ParseIdentifierName();
+    TRY(ParseIdentifierName());
     if (Check(Token::LPAREN)) {
       if (!Check(Token::RPAREN)) {
-        ParseExpressionList();
-        Expect(Token::RPAREN);
+        TRY(ParseExpressionList());
+        TRY(Expect(Token::RPAREN));
       }
-      return;
+      return true;
     }
   }
-  Error();
+  return Error();
 }
 
-void ParserSimple::ParseDoExpression() {
+bool ParserSimple::ParseDoExpression() {
   DCHECK_EQ(peek(), Token::DO);
   Next();
-  ParseBlock();
+  TRY(ParseBlock());
+  return true;
 }
 
-void ParserSimple::ParseClass() {
+bool ParserSimple::ParseClass() {
   DCHECK_EQ(peek(), Token::CLASS);
   Next();
-  if (peek_any_identifier()) ParseIdentifierName();
-  if (Check(Token::EXTENDS)) ParseExpression();
+  if (peek_any_identifier()) TRY(ParseIdentifierName());
+  if (Check(Token::EXTENDS)) TRY(ParseExpression());
   if (Check(Token::LBRACE)) {
-    while (!Check(Token::RBRACE) && peek() != Token::EOS) {
+    while (!Check(Token::RBRACE)) {
       if (Check(Token::SEMICOLON)) continue;
-      ParsePropertyDefinition(true);
+      TRY(ParsePropertyDefinition(true));
     }
-    return;
+    return true;
   }
-  Error();
+  return Error();
 }
 
-void ParserSimple::ParsePropertyDefinition(bool in_class) {
+bool ParserSimple::ParsePropertyDefinition(bool in_class) {
   bool is_static = in_class && Check(Token::STATIC);
   bool is_generator = Check(Token::MUL);
   bool is_get = false;
@@ -619,44 +623,44 @@ void ParserSimple::ParsePropertyDefinition(bool in_class) {
       allow_harmony_async_await() && peek() == Token::ASYNC &&
       !scanner()->HasAnyLineTerminatorAfterNext() &&
       PeekAhead() != Token::LPAREN;
-  ParsePropertyName(&is_get, &is_set);
+  TRY(ParsePropertyName(&is_get, &is_set));
   switch (peek()) {
     case Token::COLON:
     case Token::ASSIGN:
       Next();
-      ParseExpression();
-      return;
+      TRY(ParseExpression());
+      return true;
     case Token::COMMA:
     case Token::RBRACE:
     case Token::EOS:
-      return;
+      return true;
     default:
       break;
   }
   if (is_get || is_set || (is_async && !is_generator && !is_static)) {
     bool dont_care;
-    ParsePropertyName(&dont_care, &dont_care);
+    TRY(ParsePropertyName(&dont_care, &dont_care));
   }
   if (Check(Token::LPAREN)) {
     if (!Check(Token::RPAREN)) {
-      ParseExpressionList();
-      Expect(Token::RPAREN);
+      TRY(ParseExpressionList());
+      TRY(Expect(Token::RPAREN));
     }
     if (Check(Token::LBRACE)) {
       int body_start = scanner()->location().beg_pos;
       if (!Check(Token::RBRACE)) {
-        ParseStmtOrDeclList(Token::RBRACE);
-        Expect(Token::RBRACE);
+        TRY(ParseStmtOrDeclList(Token::RBRACE));
+        TRY(Expect(Token::RBRACE));
       }
       std::fprintf(stderr, "simple, method boundaries: %d, %d\n",
                    body_start, scanner()->location().end_pos);
-      return;
+      return true;
     }
   }
-  Error();
+  return Error();
 }
 
-void ParserSimple::ParsePropertyName(bool* is_get, bool* is_set) {
+bool ParserSimple::ParsePropertyName(bool* is_get, bool* is_set) {
   switch (peek()) {
     case Token::STRING:
     case Token::SMI:
@@ -665,72 +669,73 @@ void ParserSimple::ParsePropertyName(bool* is_get, bool* is_set) {
       break;
     case Token::LBRACK:
       Next();
-      ParseExpressionList();
-      Expect(Token::RBRACK);
+      TRY(ParseExpressionList());
+      TRY(Expect(Token::RBRACK));
       break;
     default:
-      ParseIdentifierName();
+      TRY(ParseIdentifierName());
       scanner()->IsGetOrSet(is_get, is_set);
       break;
   }
+  return true;
 }
 
-void ParserSimple::ParseBlock() {
+bool ParserSimple::ParseBlock() {
   if (Check(Token::LBRACE)) {
     if (!Check(Token::RBRACE)) {
-      ParseStmtOrDeclList(Token::RBRACE);
-      Expect(Token::RBRACE);
+      TRY(ParseStmtOrDeclList(Token::RBRACE));
+      TRY(Expect(Token::RBRACE));
     }
-    return;
+    return true;
   }
-  Error();
+  return Error();
 }
 
-void ParserSimple::ParseIfStatement() {
+bool ParserSimple::ParseIfStatement() {
   DCHECK_EQ(peek(), Token::IF);
   Next();
   if (Check(Token::LPAREN)) {
-    ParseExpressionList();
+    TRY(ParseExpressionList());
     if (Check(Token::RPAREN)) {
-      ParseStmtOrDecl();
-      if (Check(Token::ELSE)) ParseStmtOrDecl();
-      return;
+      TRY(ParseStmtOrDecl());
+      if (Check(Token::ELSE)) TRY(ParseStmtOrDecl());
+      return true;
     }
   }
-  Error();
+  return Error();
 }
 
-void ParserSimple::ParseDoWhileStatement() {
+bool ParserSimple::ParseDoWhileStatement() {
   DCHECK_EQ(peek(), Token::DO);
   Next();
-  ParseStmtOrDecl();
+  TRY(ParseStmtOrDecl());
   if (Check(Token::WHILE) && Check(Token::LPAREN)) {
-    ParseExpressionList();
-    Expect(Token::RPAREN);
+    TRY(ParseExpressionList());
+    TRY(Expect(Token::RPAREN));
     Check(Token::SEMICOLON);
-    return;
+    return true;
   }
-  Error();
+  return Error();
 }
 
-void ParserSimple::ParseWhileStatement() {
+bool ParserSimple::ParseWhileStatement() {
   DCHECK_EQ(peek(), Token::WHILE);
   Next();
   if (Check(Token::LPAREN)) {
-    ParseExpressionList();
+    TRY(ParseExpressionList());
     if (Check(Token::RPAREN)) {
-      ParseStmtOrDecl();
-      return;
+      TRY(ParseStmtOrDecl());
+      return true;
     }
   }
-  Error();
+  return Error();
 }
 
-void ParserSimple::ParseForStatement() {
+bool ParserSimple::ParseForStatement() {
   DCHECK_EQ(peek(), Token::FOR);
   Next();
   if (Check(Token::LPAREN)) {
-    while (peek() != Token::RPAREN && peek() != Token::EOS) {
+    while (peek() != Token::RPAREN) {
       switch (peek()) {
         case Token::SEMICOLON:
           Next();
@@ -738,129 +743,137 @@ void ParserSimple::ParseForStatement() {
         case Token::CONST:
         case Token::VAR:
           Next();
-          ParseExpressionList();
+          TRY(ParseExpressionList());
           break;
         case Token::LET:
           if (IsNextLetKeyword()) Next();
-          ParseExpressionList();
+          TRY(ParseExpressionList());
           break;
         default:
-          ParseExpressionList();
+          TRY(ParseExpressionList());
       }
       if (PeekContextualKeyword("of")) {
         Next();
-        ParseExpressionList();
+        TRY(ParseExpressionList());
       }
     }
     if (Check(Token::RPAREN)) {
-      ParseStmtOrDecl();
-      return;
+      TRY(ParseStmtOrDecl());
+      return true;
     }
   }
-  Error();
+  return Error();
 }
 
-void ParserSimple::ParseWithStatement() {
+bool ParserSimple::ParseWithStatement() {
   DCHECK_EQ(peek(), Token::WITH);
   Next();
   if (Check(Token::LPAREN)) {
-    ParseExpressionList();
+    TRY(ParseExpressionList());
     if (Check(Token::RPAREN)) {
-      ParseStmtOrDecl();
-      return;
+      TRY(ParseStmtOrDecl());
+      return true;
     }
   }
-  Error();
+  return Error();
 }
 
-void ParserSimple::ParseSwitchStatement() {
+bool ParserSimple::ParseSwitchStatement() {
   DCHECK_EQ(peek(), Token::SWITCH);
   Next();
   if (Check(Token::LPAREN)) {
-    ParseExpressionList();
+    TRY(ParseExpressionList());
     if (Check(Token::RPAREN)) {
-      ParseBlock();
-      return;
+      TRY(ParseBlock());
+      return true;
     }
   }
-  Error();
+  return Error();
 }
 
-void ParserSimple::ParseCaseClause() {
+bool ParserSimple::ParseCaseClause() {
   DCHECK(peek() == Token::CASE || peek() == Token::DEFAULT);
   if (Check(Token::CASE))
-    ParseExpressionList();
+    TRY(ParseExpressionList());
   else
     Next();
-  Expect(Token::COLON);
+  TRY(Expect(Token::COLON));
+  return true;
 }
 
-void ParserSimple::ParseDebuggerStatement() {
+bool ParserSimple::ParseDebuggerStatement() {
   DCHECK_EQ(peek(), Token::DEBUGGER);
   Next();
-  ExpectSemicolon();
+  TRY(ExpectSemicolon());
+  return true;
 }
 
-void ParserSimple::ParseContinueStatement() {
+bool ParserSimple::ParseContinueStatement() {
   DCHECK_EQ(peek(), Token::CONTINUE);
   Next();
   Token::Value tok = peek();
   if (!scanner()->HasAnyLineTerminatorBeforeNext() &&
       tok != Token::SEMICOLON && tok != Token::RBRACE && tok != Token::EOS) {
-    ParseIdentifierName();
+    TRY(ParseIdentifierName());
   }
-  ExpectSemicolon();
+  TRY(ExpectSemicolon());
+  return true;
 }
 
-void ParserSimple::ParseBreakStatement() {
+bool ParserSimple::ParseBreakStatement() {
   DCHECK_EQ(peek(), Token::BREAK);
   Next();
   Token::Value tok = peek();
   if (!scanner()->HasAnyLineTerminatorBeforeNext() &&
       tok != Token::SEMICOLON && tok != Token::RBRACE && tok != Token::EOS)
-    ParseIdentifierName();
-  ExpectSemicolon();
+    TRY(ParseIdentifierName());
+  TRY(ExpectSemicolon());
+  return true;
 }
 
-void ParserSimple::ParseReturnStatement() {
+bool ParserSimple::ParseReturnStatement() {
   DCHECK_EQ(peek(), Token::RETURN);
   Next();
   Token::Value tok = peek();
   if (!scanner()->HasAnyLineTerminatorBeforeNext() &&
       tok != Token::SEMICOLON && tok != Token::RBRACE && tok != Token::EOS)
-    ParseExpressionList();
-  ExpectSemicolon();
+    TRY(ParseExpressionList());
+  TRY(ExpectSemicolon());
+  return true;
 }
 
-void ParserSimple::ParseThrowStatement() {
+bool ParserSimple::ParseThrowStatement() {
   DCHECK_EQ(peek(), Token::THROW);
   Next();
-  ParseExpressionList();
-  ExpectSemicolon();
+  TRY(ParseExpressionList());
+  TRY(ExpectSemicolon());
+  return true;
 }
 
-void ParserSimple::ParseTryStatement() {
+bool ParserSimple::ParseTryStatement() {
   DCHECK_EQ(peek(), Token::TRY);
   Next();
-  ParseBlock();
+  TRY(ParseBlock());
   if (Check(Token::CATCH) && Check(Token::LPAREN)) {
-    ParseExpressionList();
-    Expect(Token::RPAREN);
-    ParseBlock();
+    TRY(ParseExpressionList());
+    TRY(Expect(Token::RPAREN));
+    TRY(ParseBlock());
   }
-  if (Check(Token::FINALLY)) ParseBlock();
+  if (Check(Token::FINALLY)) TRY(ParseBlock());
+  return true;
 }
 
-void ParserSimple::ParseConciseBody() {
+bool ParserSimple::ParseConciseBody() {
   DCHECK_EQ(peek(), Token::ARROW);
   Next();
   int body_start = scanner()->location().beg_pos;
   if (peek() == Token::LBRACE)
-    ParseBlock();
+    TRY(ParseBlock());
   else
-    ParseExpression();
+    TRY(ParseExpression());
   std::fprintf(stderr, "simple, arrow function boundaries: %d, %d\n",
                body_start, scanner()->location().end_pos);
+  return true;
 }
 
 
@@ -908,17 +921,21 @@ bool ParserSimple::Check(Token::Value token) {
   return true;
 }
 
-void ParserSimple::Error() {
-  std::fprintf(stderr, "Parsing simple: error at %d, ignoring token %s\n",
+bool ParserSimple::Error() {
+  std::fprintf(stderr, "Parsing simple: error at %d, unexpected token %s\n",
                scanner()->peek_location().beg_pos, Token::Name(peek()));
-  Next();
+  return false;
 }
 
-void ParserSimple::Expect(Token::Value token) {
-  if (!Check(token)) Error();
+bool ParserSimple::Expect(Token::Value token) {
+  if (Check(token)) return true;
+  std::fprintf(stderr, "Parsing simple: error at %d, expected %s, found %s\n",
+               scanner()->peek_location().beg_pos, Token::Name(token),
+               Token::Name(peek()));
+  return false;
 }
 
-void ParserSimple::ExpectSemicolon() {
+bool ParserSimple::ExpectSemicolon() {
   while (true) {
     Token::Value tok = peek();
     switch (tok) {
@@ -927,13 +944,13 @@ void ParserSimple::ExpectSemicolon() {
         // Fall through.
       case Token::RBRACE:
       case Token::EOS:
-        return;
+        return true;
       default:
         if (scanner()->HasAnyLineTerminatorBeforeNext())
-          return;
+          return true;
         break;
     }
-    Error();
+    return Error();
   }
 }
 
