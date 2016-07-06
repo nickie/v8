@@ -42,7 +42,7 @@ class ParserSimple {
   bool ParseTemplateLiteral();
   bool ParseArrayLiteral();
   bool ParseObjectLiteral();
-  bool ParseFunctionOrGenerator();
+  bool ParseFunctionOrGenerator(bool is_async);
   bool ParseV8Intrinsic();
   bool ParseDoExpression();
   bool ParseClass();
@@ -94,6 +94,22 @@ class ParserSimple {
 
   bool peek_any_identifier();
   bool IsNextLetKeyword();
+
+  class ForThisScope {
+   public:
+    typedef void (ParserSimple::*setter) (bool value);
+    typedef bool (ParserSimple::*getter) () const;
+    ForThisScope(ParserSimple* parser, getter g, setter s)
+        : parser_(parser), setter_(s), old_value_((parser->*g)()) {}
+    ~ForThisScope() { (parser_->*setter_)(old_value_); }
+   private:
+    ParserSimple* parser_;
+    setter setter_;
+    bool old_value_;
+  };
+
+#define FOR_THIS_SCOPE(getter, setter)                                  \
+  ForThisScope local_##getter(this, &ParserSimple::getter, &ParserSimple::setter)
 
  private:
   Scanner scanner_;
@@ -183,6 +199,7 @@ bool ParserSimple::ParseScript() {
 
 bool ParserSimple::ParseStmtOrDeclList(int end_token) {
   bool directive_prologue = true;
+  FOR_THIS_SCOPE(is_sloppy, set_sloppy);
   while (peek() != end_token) {
     // Process directives.
     if (directive_prologue) {
@@ -191,7 +208,7 @@ bool ParserSimple::ParseStmtOrDeclList(int end_token) {
            PeekAhead() == Token::SEMICOLON || PeekAhead() == end_token)) {
         Next();
         if (GetSymbol() == ast_value_factory()->use_strict_string())
-          std::fprintf(stderr, "strict mode\n");  // !!!
+          set_sloppy(false);
         Check(Token::SEMICOLON);
         continue;
       } else {
@@ -269,11 +286,6 @@ bool ParserSimple::ParseStmtOrDecl() {
     case Token::DEFAULT:
       TRY(ParseCaseClause());
       break;
-    case Token::ASYNC:
-      if (allow_harmony_async_await() && PeekAhead() == Token::FUNCTION &&
-          !scanner()->HasAnyLineTerminatorAfterNext())
-        Next();
-      // Fall through to labeled statements and expressions.
     default:
       if (peek_any_identifier() && PeekAhead() == Token::COLON) {
         Next();
@@ -412,11 +424,10 @@ bool ParserSimple::ParseTerm() {
   // Parse all proper terms.
   switch (peek()) {
     case Token::ASYNC:
-      if (allow_harmony_async_await() &&
-          !scanner()->HasAnyLineTerminatorAfterNext() &&
-          PeekAhead() == Token::FUNCTION) {
+      if (allow_harmony_async_await() && PeekAhead() == Token::FUNCTION &&
+          !scanner()->HasAnyLineTerminatorAfterNext()) {
         Next();
-        TRY(ParseFunctionOrGenerator());
+        TRY(ParseFunctionOrGenerator(true));
         break;
       }
       // Falls through, treating async as an identifier.
@@ -459,7 +470,7 @@ bool ParserSimple::ParseTerm() {
       if (allow_harmony_function_sent() && PeekAhead() == Token::PERIOD)
         Next();
       else
-        TRY(ParseFunctionOrGenerator());
+        TRY(ParseFunctionOrGenerator(false));
       break;
     case Token::CLASS:
       TRY(ParseClass());
@@ -550,11 +561,12 @@ bool ParserSimple::ParseObjectLiteral() {
   return true;
 }
 
-bool ParserSimple::ParseFunctionOrGenerator() {
+bool ParserSimple::ParseFunctionOrGenerator(bool is_async) {
+  FOR_THIS_SCOPE(is_generator, set_generator);
+  FOR_THIS_SCOPE(is_async_function, set_async_function);
   DCHECK_EQ(peek(), Token::FUNCTION);
   Next();
-  bool generator = Check(Token::MUL);
-  USE(generator);  // !!!
+  bool is_generator = Check(Token::MUL);
   if (peek_any_identifier())
     TRY(ParseIdentifierName());
   if (Check(Token::LPAREN)) {
@@ -563,6 +575,8 @@ bool ParserSimple::ParseFunctionOrGenerator() {
       TRY(Expect(Token::RPAREN));
     }
     if (Check(Token::LBRACE)) {
+      set_generator(is_generator);
+      set_async_function(is_async);
       int body_start = scanner()->location().beg_pos;
       if (!Check(Token::RBRACE)) {
         TRY(ParseStmtOrDeclList(Token::RBRACE));
@@ -615,6 +629,8 @@ bool ParserSimple::ParseClass() {
 }
 
 bool ParserSimple::ParsePropertyDefinition(bool in_class) {
+  FOR_THIS_SCOPE(is_generator, set_generator);
+  FOR_THIS_SCOPE(is_async_function, set_async_function);
   bool is_static = in_class && Check(Token::STATIC);
   bool is_generator = Check(Token::MUL);
   bool is_get = false;
@@ -637,7 +653,8 @@ bool ParserSimple::ParsePropertyDefinition(bool in_class) {
     default:
       break;
   }
-  if (is_get || is_set || (is_async && !is_generator && !is_static)) {
+  if (((is_get || is_set) && peek() != Token::LPAREN) ||
+      (is_async && !is_generator && !is_static)) {
     bool dont_care;
     TRY(ParsePropertyName(&dont_care, &dont_care));
   }
@@ -647,6 +664,8 @@ bool ParserSimple::ParsePropertyDefinition(bool in_class) {
       TRY(Expect(Token::RPAREN));
     }
     if (Check(Token::LBRACE)) {
+      set_generator(is_generator);
+      set_async_function(is_async);
       int body_start = scanner()->location().beg_pos;
       if (!Check(Token::RBRACE)) {
         TRY(ParseStmtOrDeclList(Token::RBRACE));
@@ -894,6 +913,7 @@ ParserSimple::ParserSimple(ParseInfo* info)
     ast_value_factory_ = new AstValueFactory(info->zone(), info->hash_seed());
     ast_value_factory_owned_ = true;
   }
+  set_sloppy(true);
 }
 
 #undef IS_FIELD_INIT
