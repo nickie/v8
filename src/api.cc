@@ -1910,8 +1910,6 @@ MaybeLocal<UnboundScript> ScriptCompiler::CompileUnboundInternal(
                                      UnboundScript);
   TRACE_EVENT0("v8", "V8.ScriptCompiler");
 
-  i::print_function_boundaries = true;
-
   // Don't try to produce any kind of cache when the debugger is loaded.
   if (isolate->debug()->is_loaded() &&
       (options == kProduceParserCache || options == kProduceCodeCache)) {
@@ -2185,7 +2183,6 @@ MaybeLocal<Script> ScriptCompiler::Compile(Local<Context> context,
                                            StreamedSource* v8_source,
                                            Local<String> full_source_string,
                                            const ScriptOrigin& origin) {
-  i::print_function_boundaries = true;
   PREPARE_FOR_EXECUTION(context, ScriptCompiler, Compile, Script);
   TRACE_EVENT0("v8", "V8.ScriptCompiler");
   i::StreamedSource* source = v8_source->impl();

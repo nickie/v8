@@ -1086,11 +1086,15 @@ Handle<SharedFunctionInfo> CompileToplevel(CompilationInfo* info) {
         parse_info->set_cached_data(nullptr);
         parse_info->set_compile_options(ScriptCompiler::kNoCompileOptions);
       }
-      if (print_function_boundaries) {
+      if (FLAG_print_function_boundaries) {
+        print_function_boundaries = true;
         if (Parser::ParseSimple(isolate, parse_info))
           std::fprintf(stderr, "Parsing simple: success\n");
         else
           std::fprintf(stderr, "Parsing simple: error\n");
+        Parser::ParseSimpleComparePreParse(isolate, parse_info);
+        Parser::ParseSimpleCompareParse(isolate, parse_info);
+        print_function_boundaries = false;
       }
       if (!Parser::ParseStatic(parse_info)) {
         return Handle<SharedFunctionInfo>::null();

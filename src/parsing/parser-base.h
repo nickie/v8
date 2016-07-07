@@ -3405,8 +3405,8 @@ ParserBase<Traits>::ParseArrowFunctionLiteral(
       this->MarkCollectedTailCallExpressions();
     }
     if (print_function_boundaries)
-      std::fprintf(stderr, "base, arrow function boundaries: %d, %d\n",
-                   body_start, scanner()->location().end_pos);
+      std::fprintf(stderr, "base %p, arrow function boundaries: %d, %d\n",
+                   (void*) this, body_start, scanner()->location().end_pos);
     super_loc = function_state.super_location();
 
     formal_parameters.scope->set_end_position(scanner()->location().end_pos);

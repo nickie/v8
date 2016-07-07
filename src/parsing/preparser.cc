@@ -125,8 +125,8 @@ PreParser::PreParseResult PreParser::PreParseLazyFunction(
   int start_position = peek_position();
   ParseLazyFunctionLiteralBody(&ok, bookmark);
   if (print_function_boundaries)
-    std::fprintf(stderr, "preparser, lazy function boundaries: %d, %d\n",
-                 body_start, scanner()->peek_location().end_pos);
+    std::fprintf(stderr, "preparser %p, lazy function boundaries: %d, %d\n",
+                 (void*) this, body_start, scanner()->peek_location().end_pos);
   use_counts_ = nullptr;
   if (bookmark && bookmark->HasBeenReset()) {
     // Do nothing, as we've just aborted scanning this function.
@@ -1133,8 +1133,8 @@ PreParser::Expression PreParser::ParseFunctionLiteral(
   }
   Expect(Token::RBRACE, CHECK_OK);
   if (print_function_boundaries)
-    std::fprintf(stderr, "preparser, eager function boundaries: %d, %d\n",
-                 body_start, scanner()->location().end_pos);
+    std::fprintf(stderr, "preparser %p, eager function boundaries: %d, %d\n",
+                 (void*) this, body_start, scanner()->location().end_pos);
 
   // Parsing the body may change the language mode in our scope.
   language_mode = function_scope->language_mode();

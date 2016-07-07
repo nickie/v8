@@ -282,6 +282,8 @@ DEFINE_BOOL(track_field_types, true, "track field types")
 DEFINE_IMPLICATION(track_field_types, track_fields)
 DEFINE_IMPLICATION(track_field_types, track_heap_object_fields)
 DEFINE_BOOL(smi_binop, true, "support smi representation in binary operations")
+DEFINE_BOOL(print_function_boundaries, false,
+            "enable a simple parser which finds function boundaries")
 
 // Flags for optimization types.
 DEFINE_BOOL(optimize_for_size, false,

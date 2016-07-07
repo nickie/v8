@@ -157,34 +157,149 @@ bool Parser::ParseSimple(Isolate* isolate, ParseInfo* info) {
     }
   }
 
-  bool result;
-  if (source->IsExternalTwoByteString()) {
-    ExternalTwoByteStringUtf16CharacterStream stream(
+  Utf16CharacterStream* stream;
+  if (source->IsExternalTwoByteString())
+    stream = new ExternalTwoByteStringUtf16CharacterStream(
         Handle<ExternalTwoByteString>::cast(source),
         start_position, end_position);
-    result = parser.Parse(&stream);
-  } else {
-    GenericStringUtf16CharacterStream stream(
+  else
+    stream = new GenericStringUtf16CharacterStream(
         source, start_position, end_position);
-    result = parser.Parse(&stream);
-  }
+  bool result = parser.Parse(stream);
+  delete stream;
+
   if (FLAG_trace_parse) {
     double ms = timer.Elapsed().InMillisecondsF();
-    PrintF("[parsing took %0.3f ms]\n", ms);
+    PrintF("[simple parsing took %0.3f ms]\n", ms);
   }
   return result;
+}
+
+
+// Pre-parse the whole script, for comparison purposes.
+
+void Parser::ParseSimpleComparePreParse(Isolate* isolate, ParseInfo* info) {
+  RuntimeCallTimerScope runtimeTimer(
+      isolate, &RuntimeCallStats::ParseSimpleComparePreparse);
+  Handle<String> source(String::cast(info->script()->source()));
+
+  base::ElapsedTimer timer;
+  if (FLAG_trace_parse) {
+    timer.Start();
+  }
+
+  source = String::Flatten(source);
+
+  int start_position = 0;
+  int end_position = source->length();
+
+  if (info->is_lazy()) {
+    DCHECK(!info->is_eval());
+    if (info->shared_info()->is_function()) {
+      Handle<SharedFunctionInfo> shared_info = info->shared_info();
+      start_position = shared_info->start_position();
+      end_position = shared_info->end_position();
+    }
+  }
+
+  Utf16CharacterStream* stream;
+  if (source->IsExternalTwoByteString())
+    stream = new ExternalTwoByteStringUtf16CharacterStream(
+        Handle<ExternalTwoByteString>::cast(source),
+        start_position, end_position);
+  else
+    stream = new GenericStringUtf16CharacterStream(
+        source, start_position, end_position);
+  Scanner scanner(isolate->unicode_cache());
+  scanner.Initialize(stream);
+  Zone zone(isolate->allocator());
+  AstValueFactory ast_value_factory(&zone, isolate->heap()->HashSeed());
+  CompleteParserRecorder log;
+  PreParser preparser(&zone, &scanner, &ast_value_factory, &log,
+                      isolate->stack_guard()->real_climit());
+  preparser.set_allow_lazy(true);
+  preparser.set_allow_natives(FLAG_allow_natives_syntax || info->is_native());
+  preparser.set_allow_tailcalls(FLAG_harmony_tailcalls && !info->is_native() &&
+                                isolate->is_tail_call_elimination_enabled());
+  preparser.set_allow_harmony_do_expressions(FLAG_harmony_do_expressions);
+  preparser.set_allow_harmony_for_in(FLAG_harmony_for_in);
+  preparser.set_allow_harmony_function_sent(FLAG_harmony_function_sent);
+  preparser.set_allow_harmony_restrictive_declarations(
+      FLAG_harmony_restrictive_declarations);
+  preparser.set_allow_harmony_exponentiation_operator(
+      FLAG_harmony_exponentiation_operator);
+  preparser.set_allow_harmony_async_await(FLAG_harmony_async_await);
+  preparser.set_allow_harmony_restrictive_generators(
+      FLAG_harmony_restrictive_generators);
+  preparser.set_allow_harmony_trailing_commas(FLAG_harmony_trailing_commas);
+  preparser.PreParseProgram();
+  delete stream;
+
+  if (FLAG_trace_parse) {
+    double ms = timer.Elapsed().InMillisecondsF();
+    PrintF("[simple (comparison) preparsing took %0.3f ms]\n", ms);
+  }
+}
+
+
+// Parse the whole script, for comparison purposes.
+
+void Parser::ParseSimpleCompareParse(Isolate* isolate, ParseInfo* info) {
+  RuntimeCallTimerScope runtimeTimer(
+      isolate, &RuntimeCallStats::ParseSimpleCompareParse);
+  Handle<String> source(String::cast(info->script()->source()));
+
+  base::ElapsedTimer timer;
+  if (FLAG_trace_parse) {
+    timer.Start();
+  }
+
+  source = String::Flatten(source);
+
+  int start_position = 0;
+  int end_position = source->length();
+
+  if (info->is_lazy()) {
+    DCHECK(!info->is_eval());
+    if (info->shared_info()->is_function()) {
+      Handle<SharedFunctionInfo> shared_info = info->shared_info();
+      start_position = shared_info->start_position();
+      end_position = shared_info->end_position();
+    }
+  }
+
+  Utf16CharacterStream* stream;
+  if (source->IsExternalTwoByteString())
+    stream = new ExternalTwoByteStringUtf16CharacterStream(
+        Handle<ExternalTwoByteString>::cast(source),
+        start_position, end_position);
+  else
+    stream = new GenericStringUtf16CharacterStream(
+        source, start_position, end_position);
+  Parser parser(info);
+  parser.scanner()->Initialize(stream);
+  parser.fni_ = new (parser.zone()) FuncNameInferrer(parser.ast_value_factory(),
+                                                     parser.zone());
+  parser.set_allow_lazy(false);
+  parser.DoParseProgram(info);
+  delete stream;
+
+  if (FLAG_trace_parse) {
+    double ms = timer.Elapsed().InMillisecondsF();
+    PrintF("[simple (comparison) parsing took %0.3f ms]\n", ms);
+  }
 }
 
 
 // Parsing functions of the simple parser.
 
 bool ParserSimple::Parse(Utf16CharacterStream* stream) {
-  std::fprintf(stderr, "Parsing simple: begin\n");
+  std::fprintf(stderr, "Parsing simple %p: begin\n", (void*) this);
   scanner()->Initialize(stream);
   scanner()->set_allow_harmony_exponentiation_operator(
       FLAG_harmony_exponentiation_operator);
   bool result = ParseScript();
-  std::fprintf(stderr, "Parsing simple: end\n");
+  std::fprintf(stderr, "Parsing simple %p: end\n", (void*) this);
   return result;
 }
 
@@ -590,8 +705,8 @@ bool ParserSimple::ParseFunctionOrGenerator(bool is_async) {
         TRY(ParseStmtOrDeclList(Token::RBRACE));
         TRY(Expect(Token::RBRACE));
       }
-      std::fprintf(stderr, "simple, function boundaries: %d, %d\n",
-                   body_start, scanner()->location().end_pos);
+      std::fprintf(stderr, "simple %p, function boundaries: %d, %d\n",
+                   (void*) this, body_start, scanner()->location().end_pos);
       return true;
     }
   }
@@ -679,8 +794,8 @@ bool ParserSimple::ParsePropertyDefinition(bool in_class) {
         TRY(ParseStmtOrDeclList(Token::RBRACE));
         TRY(Expect(Token::RBRACE));
       }
-      std::fprintf(stderr, "simple, method boundaries: %d, %d\n",
-                   body_start, scanner()->location().end_pos);
+      std::fprintf(stderr, "simple %p, method boundaries: %d, %d\n",
+                   (void*) this, body_start, scanner()->location().end_pos);
       return true;
     }
   }
@@ -898,8 +1013,8 @@ bool ParserSimple::ParseConciseBody() {
     TRY(ParseBlock());
   else
     TRY(ParseExpression());
-  std::fprintf(stderr, "simple, arrow function boundaries: %d, %d\n",
-               body_start, scanner()->location().end_pos);
+  std::fprintf(stderr, "simple %p, arrow function boundaries: %d, %d\n",
+               (void*) this, body_start, scanner()->location().end_pos);
   return true;
 }
 
@@ -950,16 +1065,18 @@ bool ParserSimple::Check(Token::Value token) {
 }
 
 bool ParserSimple::Error() {
-  std::fprintf(stderr, "Parsing simple: error at %d, unexpected token %s\n",
-               scanner()->peek_location().beg_pos, Token::Name(peek()));
+  std::fprintf(
+      stderr, "Parsing simple %p: error at %d, unexpected token %s\n",
+      (void*) this, scanner()->peek_location().beg_pos, Token::Name(peek()));
   return false;
 }
 
 bool ParserSimple::Expect(Token::Value token) {
   if (Check(token)) return true;
-  std::fprintf(stderr, "Parsing simple: error at %d, expected %s, found %s\n",
-               scanner()->peek_location().beg_pos, Token::Name(token),
-               Token::Name(peek()));
+  std::fprintf(
+      stderr, "Parsing simple %p: error at %d, expected %s, found %s\n",
+      (void*) this, scanner()->peek_location().beg_pos, Token::Name(token),
+      Token::Name(peek()));
   return false;
 }
 
