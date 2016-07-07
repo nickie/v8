@@ -227,7 +227,7 @@ bool ParserSimple::ParseStmtOrDecl() {
       Next();
       break;
     case Token::FUNCTION:
-      TRY(ParseExpressionList());
+      TRY(ParseFunctionOrGenerator(false));
       break;
     case Token::CLASS:
       TRY(ParseClass());
@@ -286,6 +286,13 @@ bool ParserSimple::ParseStmtOrDecl() {
     case Token::DEFAULT:
       TRY(ParseCaseClause());
       break;
+    case Token::ASYNC:
+      if (allow_harmony_async_await() && PeekAhead() == Token::FUNCTION &&
+          !scanner()->HasAnyLineTerminatorAfterNext()) {
+        Next();
+        TRY(ParseFunctionOrGenerator(true));
+        break;
+      }
     default:
       if (peek_any_identifier() && PeekAhead() == Token::COLON) {
         Next();
