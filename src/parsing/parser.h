@@ -715,7 +715,7 @@ class Parser : public ParserBase<ParserTraits> {
   void HandleSourceURLComments(Isolate* isolate, Handle<Script> script);
 
   // Experimental: locate function boundaries.
-  static bool ParseSimple(ParseInfo* info);
+  static bool ParseSimple(Isolate* isolate, ParseInfo* info);
 
  private:
   friend class ParserTraits;

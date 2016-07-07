@@ -1087,7 +1087,7 @@ Handle<SharedFunctionInfo> CompileToplevel(CompilationInfo* info) {
         parse_info->set_compile_options(ScriptCompiler::kNoCompileOptions);
       }
       if (print_function_boundaries) {
-        if (Parser::ParseSimple(parse_info))
+        if (Parser::ParseSimple(isolate, parse_info))
           std::fprintf(stderr, "Parsing simple: success\n");
         else
           std::fprintf(stderr, "Parsing simple: error\n");
@@ -1101,9 +1101,11 @@ Handle<SharedFunctionInfo> CompileToplevel(CompilationInfo* info) {
 
     FunctionLiteral* lit = parse_info->literal();
 
+#if 0
     // Don't compile, just parse...
     if (print_function_boundaries)
       return NewSharedFunctionInfoForLiteral(isolate, lit, script);
+#endif
 
     // Measure how long it takes to do the compilation; only take the
     // rest of the function into account to avoid overlap with the

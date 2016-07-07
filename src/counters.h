@@ -688,6 +688,7 @@ class RuntimeCallTimer {
   V(OptimizeCode)                                   \
   V(Parse)                                          \
   V(ParseLazy)                                      \
+  V(ParseSimple)                                    \
   V(PropertyCallback)                               \
   V(PrototypeMap_TransitionToAccessorProperty)      \
   V(PrototypeMap_TransitionToDataProperty)          \
@@ -857,6 +858,7 @@ class RuntimeCallTimerScope {
   /* Parsing timers. */                                                        \
   HT(parse, V8.ParseMicroSeconds, 1000000, MICROSECOND)                        \
   HT(parse_lazy, V8.ParseLazyMicroSeconds, 1000000, MICROSECOND)               \
+  HT(parse_simple, V8.ParseSimpleMicroSeconds, 1000000, MICROSECOND)           \
   HT(pre_parse, V8.PreParseMicroSeconds, 1000000, MICROSECOND)                 \
   /* Compilation times. */                                                     \
   HT(compile, V8.CompileMicroSeconds, 1000000, MICROSECOND)                    \

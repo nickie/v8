@@ -389,8 +389,10 @@ bool Shell::ExecuteString(Isolate* isolate, Local<String> source,
       if (report_exceptions) ReportException(isolate, &try_catch);
       return false;
     }
+#if 0
     // Don't execute, just parse...
-    if (true) return true;
+    return true;
+#endif
     maybe_result = script->Run(realm);
     EmptyMessageQueues(isolate);
     data->realm_current_ = data->realm_switch_;

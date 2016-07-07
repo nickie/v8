@@ -133,7 +133,8 @@ class ParserSimple {
 
 // Use the simple parser as an entry point in the parser.
 
-bool Parser::ParseSimple(ParseInfo* info) {
+bool Parser::ParseSimple(Isolate* isolate, ParseInfo* info) {
+  RuntimeCallTimerScope runtimeTimer(isolate, &RuntimeCallStats::ParseSimple);
   ParserSimple parser(info);
   Handle<String> source(String::cast(info->script()->source()));
 
