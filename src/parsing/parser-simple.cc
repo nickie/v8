@@ -19,6 +19,7 @@ namespace internal {
   V(harmony_function_sent)
 
 #define IS_FLAGS(V)                             \
+  V(extension)                                  \
   V(sloppy)                                     \
   V(generator)                                  \
   V(async_function)
@@ -29,6 +30,14 @@ class ParserSimple {
   ~ParserSimple();
 
   bool Parse(Utf16CharacterStream* stream);
+
+#define ALLOW_METHOD_DECL(name)                                         \
+  bool allow_##name() const { return allow_##name##_; }                 \
+  void set_allow_##name(bool allow) { allow_##name##_ = allow; }
+
+  ALLOW_FLAGS(ALLOW_METHOD_DECL)
+
+#undef ALLOW_METHOD_DECL
 
  protected:
   bool ParseScript();
@@ -43,6 +52,7 @@ class ParserSimple {
   bool ParseArrayLiteral();
   bool ParseObjectLiteral();
   bool ParseFunctionOrGenerator(bool is_async);
+  bool ParseNativeFunction();
   bool ParseV8Intrinsic();
   bool ParseDoExpression();
   bool ParseClass();
@@ -82,15 +92,9 @@ class ParserSimple {
   bool is_##name() const { return is_##name##_; }       \
   void set_##name(bool b) { is_##name##_ = b; }
 
-#define ALLOW_METHOD_DECL(name)                                         \
-  bool allow_##name() const { return allow_##name##_; }                 \
-  void set_allow_##name(bool allow) { allow_##name##_ = allow; }
-
   IS_FLAGS(IS_METHOD_DECL)
-  ALLOW_FLAGS(ALLOW_METHOD_DECL)
 
 #undef IS_METHOD_DECL
-#undef ALLOW_METHOD_DECL
 
   bool peek_any_identifier();
   bool IsNextLetKeyword();
@@ -135,7 +139,6 @@ class ParserSimple {
 
 bool Parser::ParseSimple(Isolate* isolate, ParseInfo* info) {
   RuntimeCallTimerScope runtimeTimer(isolate, &RuntimeCallStats::ParseSimple);
-  ParserSimple parser(info);
   Handle<String> source(String::cast(info->script()->source()));
 
   base::ElapsedTimer timer;
@@ -165,6 +168,9 @@ bool Parser::ParseSimple(Isolate* isolate, ParseInfo* info) {
   else
     stream = new GenericStringUtf16CharacterStream(
         source, start_position, end_position);
+  ParserSimple parser(info);
+  parser.set_allow_harmony_async_await(FLAG_harmony_async_await);
+  parser.set_allow_harmony_function_sent(FLAG_harmony_function_sent);
   bool result = parser.Parse(stream);
   delete stream;
 
@@ -338,86 +344,96 @@ bool ParserSimple::ParseStmtOrDeclList(int end_token) {
 }
 
 bool ParserSimple::ParseStmtOrDecl() {
-  switch (peek()) {
-    case Token::SEMICOLON:
-      Next();
-      break;
-    case Token::FUNCTION:
-      TRY(ParseFunctionOrGenerator(false));
-      break;
-    case Token::CLASS:
-      TRY(ParseClass());
-      break;
-    case Token::CONST:
-    case Token::VAR:
-      Next();
-      TRY(ParseExpressionList());
-      TRY(ExpectSemicolon());
-      break;
-    case Token::LET:
-      if (IsNextLetKeyword()) Next();
-      TRY(ParseExpressionList());
-      TRY(ExpectSemicolon());
-      break;
-    case Token::LBRACE:
-      TRY(ParseBlock());
-      break;
-    case Token::IF:
-      TRY(ParseIfStatement());
-      break;
-    case Token::DO:
-      TRY(ParseDoWhileStatement());
-      break;
-    case Token::WHILE:
-      TRY(ParseWhileStatement());
-      break;
-    case Token::FOR:
-      TRY(ParseForStatement());
-      break;
-    case Token::CONTINUE:
-      TRY(ParseContinueStatement());
-      break;
-    case Token::BREAK:
-      TRY(ParseBreakStatement());
-      break;
-    case Token::RETURN:
-      TRY(ParseReturnStatement());
-      break;
-    case Token::THROW:
-      TRY(ParseThrowStatement());
-      break;
-    case Token::TRY:
-      TRY(ParseTryStatement());
-      break;
-    case Token::WITH:
-      TRY(ParseWithStatement());
-      break;
-    case Token::SWITCH:
-      TRY(ParseSwitchStatement());
-      break;
-    case Token::DEBUGGER:
-      TRY(ParseDebuggerStatement());
-      break;
-    case Token::CASE:
-    case Token::DEFAULT:
-      TRY(ParseCaseClause());
-      break;
-    case Token::ASYNC:
-      if (allow_harmony_async_await() && PeekAhead() == Token::FUNCTION &&
-          !scanner()->HasAnyLineTerminatorAfterNext()) {
+  while (true) {
+    switch (peek()) {
+      case Token::SEMICOLON:
         Next();
-        TRY(ParseFunctionOrGenerator(true));
         break;
-      }
-    default:
-      if (peek_any_identifier() && PeekAhead() == Token::COLON) {
+      case Token::FUNCTION:
+        TRY(ParseFunctionOrGenerator(false));
+        break;
+      case Token::CLASS:
+        TRY(ParseClass());
+        break;
+      case Token::CONST:
+      case Token::VAR:
         Next();
-        Next();
-      } else {
         TRY(ParseExpressionList());
         TRY(ExpectSemicolon());
-      }
-      break;
+        break;
+      case Token::LET:
+        if (IsNextLetKeyword()) Next();
+        TRY(ParseExpressionList());
+        TRY(ExpectSemicolon());
+        break;
+      case Token::LBRACE:
+        TRY(ParseBlock());
+        break;
+      case Token::IF:
+        TRY(ParseIfStatement());
+        break;
+      case Token::DO:
+        TRY(ParseDoWhileStatement());
+        break;
+      case Token::WHILE:
+        TRY(ParseWhileStatement());
+        break;
+      case Token::FOR:
+        TRY(ParseForStatement());
+        break;
+      case Token::CONTINUE:
+        TRY(ParseContinueStatement());
+        break;
+      case Token::BREAK:
+        TRY(ParseBreakStatement());
+        break;
+      case Token::RETURN:
+        TRY(ParseReturnStatement());
+        break;
+      case Token::THROW:
+        TRY(ParseThrowStatement());
+        break;
+      case Token::TRY:
+        TRY(ParseTryStatement());
+        break;
+      case Token::WITH:
+        TRY(ParseWithStatement());
+        break;
+      case Token::SWITCH:
+        TRY(ParseSwitchStatement());
+        break;
+      case Token::DEBUGGER:
+        TRY(ParseDebuggerStatement());
+        break;
+      case Token::CASE:
+      case Token::DEFAULT:
+        TRY(ParseCaseClause());
+        break;
+      case Token::ASYNC:
+        if (allow_harmony_async_await() && PeekAhead() == Token::FUNCTION &&
+            !scanner()->HasAnyLineTerminatorAfterNext()) {
+          Next();
+          TRY(ParseFunctionOrGenerator(true));
+          break;
+        }
+      default:
+        if (peek_any_identifier() && PeekAhead() == Token::COLON) {
+          Next();
+          Next();
+          continue;
+        } else if (is_extension() && PeekContextualKeyword("native") &&
+                   PeekAhead() == Token::FUNCTION &&
+                   !scanner()->HasAnyLineTerminatorAfterNext()) {
+          Next();
+          TRY(ParseNativeFunction());
+          break;
+        } else {
+          TRY(ParseExpressionList());
+          TRY(ExpectSemicolon());
+        }
+        break;
+    }
+    break;
   }
   return true;
 }
@@ -709,6 +725,20 @@ bool ParserSimple::ParseFunctionOrGenerator(bool is_async) {
                    (void*) this, body_start, scanner()->location().end_pos);
       return true;
     }
+  }
+  return Error();
+}
+
+bool ParserSimple::ParseNativeFunction() {
+  DCHECK_EQ(peek(), Token::FUNCTION);
+  Next();
+  TRY(ParseIdentifierName());
+  if (Check(Token::LPAREN)) {
+    if (!Check(Token::RPAREN)) {
+      TRY(ParseExpressionList());
+      TRY(Expect(Token::RPAREN));
+    }
+    return true;
   }
   return Error();
 }
@@ -1036,7 +1066,8 @@ ParserSimple::ParserSimple(ParseInfo* info)
     ast_value_factory_ = new AstValueFactory(info->zone(), info->hash_seed());
     ast_value_factory_owned_ = true;
   }
-  set_sloppy(true);
+  if (info->language_mode() == SLOPPY) set_sloppy(true);
+  if (info->extension()) set_extension(true);
 }
 
 #undef IS_FIELD_INIT
