@@ -171,13 +171,22 @@ bool Parser::ParseSimple(Isolate* isolate, ParseInfo* info) {
   ParserSimple parser(info);
   parser.set_allow_harmony_async_await(FLAG_harmony_async_await);
   parser.set_allow_harmony_function_sent(FLAG_harmony_function_sent);
+  std::fprintf(stderr, "Parsing simple %p: begin\n", (void*) &parser);
   bool result = parser.Parse(stream);
+  std::fprintf(stderr, "Parsing simple %p: end\n", (void*) &parser);
   delete stream;
 
   if (FLAG_trace_parse) {
     double ms = timer.Elapsed().InMillisecondsF();
     PrintF("[simple parsing took %0.3f ms]\n", ms);
   }
+#if 0
+  if (result == false) {
+    std::fprintf(stderr, "Here's the failing script:\n");
+    source->PrintOn(stderr);
+    std::fprintf(stderr, "\nEnd of the failing script:\n");
+  }
+#endif
   return result;
 }
 
@@ -238,7 +247,10 @@ void Parser::ParseSimpleComparePreParse(Isolate* isolate, ParseInfo* info) {
   preparser.set_allow_harmony_restrictive_generators(
       FLAG_harmony_restrictive_generators);
   preparser.set_allow_harmony_trailing_commas(FLAG_harmony_trailing_commas);
+  std::fprintf(stderr, "Parsing with preparser %p: begin\n",
+               (void*) &preparser);
   preparser.PreParseProgram();
+  std::fprintf(stderr, "Parsing with preparser %p: end\n", (void*) &preparser);
   delete stream;
 
   if (FLAG_trace_parse) {
@@ -283,11 +295,15 @@ void Parser::ParseSimpleCompareParse(Isolate* isolate, ParseInfo* info) {
     stream = new GenericStringUtf16CharacterStream(
         source, start_position, end_position);
   Parser parser(info);
-  parser.scanner()->Initialize(stream);
+  if (FLAG_trace_parse || parser.allow_natives() || parser.extension_ != NULL)
+    parser.ast_value_factory()->Internalize(isolate);
+  parser.set_allow_lazy(false);
   parser.fni_ = new (parser.zone()) FuncNameInferrer(parser.ast_value_factory(),
                                                      parser.zone());
-  parser.set_allow_lazy(false);
+  parser.scanner()->Initialize(stream);
+  std::fprintf(stderr, "Parsing with parser %p: begin\n", (void*) &parser);
   parser.DoParseProgram(info);
+  std::fprintf(stderr, "Parsing with parser %p: end\n", (void*) &parser);
   delete stream;
 
   if (FLAG_trace_parse) {
@@ -300,13 +316,10 @@ void Parser::ParseSimpleCompareParse(Isolate* isolate, ParseInfo* info) {
 // Parsing functions of the simple parser.
 
 bool ParserSimple::Parse(Utf16CharacterStream* stream) {
-  std::fprintf(stderr, "Parsing simple %p: begin\n", (void*) this);
   scanner()->Initialize(stream);
   scanner()->set_allow_harmony_exponentiation_operator(
       FLAG_harmony_exponentiation_operator);
-  bool result = ParseScript();
-  std::fprintf(stderr, "Parsing simple %p: end\n", (void*) this);
-  return result;
+  return ParseScript();
 }
 
 #define TRY(call) do {                          \
