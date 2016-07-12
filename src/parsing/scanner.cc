@@ -43,7 +43,8 @@ Scanner::Scanner(UnicodeCache* unicode_cache)
       decimal_with_leading_zero_pos_(Location::invalid()),
       found_html_comment_(false),
       allow_harmony_exponentiation_operator_(false),
-      logfile_(NULL) {
+      logfile_(NULL),
+      print_scanner_symbols_(false) {
   bookmark_current_.literal_chars = &bookmark_current_literal_;
   bookmark_current_.raw_literal_chars = &bookmark_current_raw_literal_;
   bookmark_next_.literal_chars = &bookmark_next_literal_;
@@ -55,7 +56,7 @@ Scanner::~Scanner() {
 }
 
 void Scanner::Initialize(Utf16CharacterStream* source) {
-  if (print_scanner_symbols) {
+  if (print_scanner_symbols_) {
     char buf[256];
     std::sprintf(buf, "scanner_%p.log", (void*) this);
     logfile_ = std::fopen(buf, "w");

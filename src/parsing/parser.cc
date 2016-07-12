@@ -4381,7 +4381,7 @@ FunctionLiteral* Parser::ParseFunctionLiteral(
         body = NULL;
       }
     }
-    if (print_function_boundaries)
+    if (print_function_boundaries_)
       std::fprintf(stderr, "parser %p, function boundaries: %d, %d\n",
                    (void*) this, body_start, scanner()->location().end_pos);
 
@@ -7009,9 +7009,6 @@ void Parser::Print(AstNode* node) {
   node->Print(Isolate::Current());
 }
 #endif  // DEBUG
-
-bool print_function_boundaries = false;
-bool print_scanner_symbols = false;
 
 }  // namespace internal
 }  // namespace v8

@@ -1087,14 +1087,17 @@ Handle<SharedFunctionInfo> CompileToplevel(CompilationInfo* info) {
         parse_info->set_compile_options(ScriptCompiler::kNoCompileOptions);
       }
       if (FLAG_print_function_boundaries) {
-        print_function_boundaries = true;
-        if (Parser::ParseSimple(isolate, parse_info))
+        void* simple;
+        if (Parser::ParseSimple(isolate, parse_info, &simple))
           std::fprintf(stderr, "Parsing simple: success\n");
         else
           std::fprintf(stderr, "Parsing simple: error\n");
-        Parser::ParseSimpleComparePreParse(isolate, parse_info);
-        Parser::ParseSimpleCompareParse(isolate, parse_info);
-        print_function_boundaries = false;
+        void* preparser;
+        Parser::ParseSimpleComparePreParse(isolate, parse_info, &preparser);
+        void* parser;
+        Parser::ParseSimpleCompareParse(isolate, parse_info, &parser);
+        std::fprintf(stderr, "Compare: simple=%p, preparser=%p, parser=%p\n",
+                     simple, preparser, parser);
       }
       if (!Parser::ParseStatic(parse_info)) {
         return Handle<SharedFunctionInfo>::null();
@@ -1107,7 +1110,7 @@ Handle<SharedFunctionInfo> CompileToplevel(CompilationInfo* info) {
 
 #if 0
     // Don't compile, just parse...
-    if (print_function_boundaries)
+    if (FLAG_print_function_boundaries)
       return NewSharedFunctionInfoForLiteral(isolate, lit, script);
 #endif
 

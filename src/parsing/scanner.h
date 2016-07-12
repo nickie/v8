@@ -491,6 +491,8 @@ class Scanner {
   DECLARE_ACCESSORS(harmony_exponentiation_operator)
 #undef ACCESSOR
 
+  void set_print_scanner_symbols(bool b) { print_scanner_symbols_ = b; }
+
  private:
   // The current and look-ahead token.
   struct TokenDesc {
@@ -826,6 +828,7 @@ class Scanner {
   Location scanner_error_location_;
 
   std::FILE* logfile_;
+  bool print_scanner_symbols_;
   void log_next() {
     if (logfile_ != NULL) {
       std::fprintf(logfile_, "%-20s", Token::Name(next_.token));

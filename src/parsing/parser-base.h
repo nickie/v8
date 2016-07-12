@@ -18,8 +18,6 @@
 namespace v8 {
 namespace internal {
 
-extern bool print_function_boundaries;
-extern bool print_scanner_symbols;
 
 enum FunctionNameValidity {
   kFunctionNameIsStrictReserved,
@@ -202,7 +200,8 @@ class ParserBase : public Traits {
         allow_harmony_function_sent_(false),
         allow_harmony_async_await_(false),
         allow_harmony_restrictive_generators_(false),
-        allow_harmony_trailing_commas_(false) {}
+        allow_harmony_trailing_commas_(false),
+        print_function_boundaries_(false) {}
 
 #define ALLOW_ACCESSORS(name)                           \
   bool allow_##name() const { return allow_##name##_; } \
@@ -228,6 +227,8 @@ class ParserBase : public Traits {
 
 #undef SCANNER_ACCESSORS
 #undef ALLOW_ACCESSORS
+
+  void set_print_function_boundaries(bool b) { print_function_boundaries_ = b; }
 
   uintptr_t stack_limit() const { return stack_limit_; }
 
@@ -1195,6 +1196,9 @@ class ParserBase : public Traits {
   bool allow_harmony_async_await_;
   bool allow_harmony_restrictive_generators_;
   bool allow_harmony_trailing_commas_;
+
+ protected:
+  bool print_function_boundaries_;
 };
 
 template <class Traits>
@@ -3404,7 +3408,7 @@ ParserBase<Traits>::ParseArrowFunctionLiteral(
       expected_property_count = function_state.expected_property_count();
       this->MarkCollectedTailCallExpressions();
     }
-    if (print_function_boundaries)
+    if (print_function_boundaries_)
       std::fprintf(stderr, "base %p, arrow function boundaries: %d, %d\n",
                    (void*) this, body_start, scanner()->location().end_pos);
     super_loc = function_state.super_location();

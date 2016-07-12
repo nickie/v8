@@ -137,7 +137,7 @@ class ParserSimple {
 
 // Use the simple parser as an entry point in the parser.
 
-bool Parser::ParseSimple(Isolate* isolate, ParseInfo* info) {
+bool Parser::ParseSimple(Isolate* isolate, ParseInfo* info, void** id) {
   RuntimeCallTimerScope runtimeTimer(isolate, &RuntimeCallStats::ParseSimple);
   Handle<String> source(String::cast(info->script()->source()));
 
@@ -169,11 +169,12 @@ bool Parser::ParseSimple(Isolate* isolate, ParseInfo* info) {
     stream = new GenericStringUtf16CharacterStream(
         source, start_position, end_position);
   ParserSimple parser(info);
+  *id = (void*) &parser;
   parser.set_allow_harmony_async_await(FLAG_harmony_async_await);
   parser.set_allow_harmony_function_sent(FLAG_harmony_function_sent);
-  std::fprintf(stderr, "Parsing simple %p: begin\n", (void*) &parser);
+  std::fprintf(stderr, "Parsing simple %p: begin\n", *id);
   bool result = parser.Parse(stream);
-  std::fprintf(stderr, "Parsing simple %p: end\n", (void*) &parser);
+  std::fprintf(stderr, "Parsing simple %p: end\n", *id);
   delete stream;
 
   if (FLAG_trace_parse) {
@@ -193,7 +194,8 @@ bool Parser::ParseSimple(Isolate* isolate, ParseInfo* info) {
 
 // Pre-parse the whole script, for comparison purposes.
 
-void Parser::ParseSimpleComparePreParse(Isolate* isolate, ParseInfo* info) {
+void Parser::ParseSimpleComparePreParse(Isolate* isolate, ParseInfo* info,
+                                        void** id) {
   RuntimeCallTimerScope runtimeTimer(
       isolate, &RuntimeCallStats::ParseSimpleComparePreparse);
   Handle<String> source(String::cast(info->script()->source()));
@@ -232,6 +234,8 @@ void Parser::ParseSimpleComparePreParse(Isolate* isolate, ParseInfo* info) {
   CompleteParserRecorder log;
   PreParser preparser(&zone, &scanner, &ast_value_factory, &log,
                       isolate->stack_guard()->real_climit());
+  *id = (void*) &preparser;
+  preparser.set_print_function_boundaries(true);
   preparser.set_allow_lazy(true);
   preparser.set_allow_natives(FLAG_allow_natives_syntax || info->is_native());
   preparser.set_allow_tailcalls(FLAG_harmony_tailcalls && !info->is_native() &&
@@ -247,10 +251,9 @@ void Parser::ParseSimpleComparePreParse(Isolate* isolate, ParseInfo* info) {
   preparser.set_allow_harmony_restrictive_generators(
       FLAG_harmony_restrictive_generators);
   preparser.set_allow_harmony_trailing_commas(FLAG_harmony_trailing_commas);
-  std::fprintf(stderr, "Parsing with preparser %p: begin\n",
-               (void*) &preparser);
+  std::fprintf(stderr, "Parsing with preparser %p: begin\n", *id);
   preparser.PreParseProgram();
-  std::fprintf(stderr, "Parsing with preparser %p: end\n", (void*) &preparser);
+  std::fprintf(stderr, "Parsing with preparser %p: end\n", *id);
   delete stream;
 
   if (FLAG_trace_parse) {
@@ -262,7 +265,8 @@ void Parser::ParseSimpleComparePreParse(Isolate* isolate, ParseInfo* info) {
 
 // Parse the whole script, for comparison purposes.
 
-void Parser::ParseSimpleCompareParse(Isolate* isolate, ParseInfo* info) {
+void Parser::ParseSimpleCompareParse(Isolate* isolate, ParseInfo* info,
+                                     void** id) {
   RuntimeCallTimerScope runtimeTimer(
       isolate, &RuntimeCallStats::ParseSimpleCompareParse);
   Handle<String> source(String::cast(info->script()->source()));
@@ -295,15 +299,17 @@ void Parser::ParseSimpleCompareParse(Isolate* isolate, ParseInfo* info) {
     stream = new GenericStringUtf16CharacterStream(
         source, start_position, end_position);
   Parser parser(info);
+  *id = (void*) &parser;
+  parser.set_print_function_boundaries(true);
   if (FLAG_trace_parse || parser.allow_natives() || parser.extension_ != NULL)
     parser.ast_value_factory()->Internalize(isolate);
   parser.set_allow_lazy(false);
   parser.fni_ = new (parser.zone()) FuncNameInferrer(parser.ast_value_factory(),
                                                      parser.zone());
   parser.scanner()->Initialize(stream);
-  std::fprintf(stderr, "Parsing with parser %p: begin\n", (void*) &parser);
+  std::fprintf(stderr, "Parsing with parser %p: begin\n", *id);
   parser.DoParseProgram(info);
-  std::fprintf(stderr, "Parsing with parser %p: end\n", (void*) &parser);
+  std::fprintf(stderr, "Parsing with parser %p: end\n", *id);
   delete stream;
 
   if (FLAG_trace_parse) {
