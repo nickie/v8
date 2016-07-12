@@ -3410,7 +3410,8 @@ ParserBase<Traits>::ParseArrowFunctionLiteral(
     }
     if (print_function_boundaries_)
       std::fprintf(stderr, "base %p, arrow function boundaries: %d, %d\n",
-                   (void*) this, body_start, scanner()->location().end_pos);
+                   static_cast<void*>(this), body_start,
+                   scanner()->location().end_pos);
     super_loc = function_state.super_location();
 
     formal_parameters.scope->set_end_position(scanner()->location().end_pos);

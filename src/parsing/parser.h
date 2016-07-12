@@ -716,8 +716,10 @@ class Parser : public ParserBase<ParserTraits> {
 
   // Experimental: locate function boundaries.
   static bool ParseSimple(Isolate* isolate, ParseInfo* info, void** id);
-  static void ParseSimpleComparePreParse(Isolate* isolate, ParseInfo* info, void** id);
-  static void ParseSimpleCompareParse(Isolate* isolate, ParseInfo* info, void** id);
+  static void ParseSimpleComparePreParse(Isolate* isolate, ParseInfo* info,
+                                         void** id);
+  static void ParseSimpleCompareParse(Isolate* isolate, ParseInfo* info,
+                                      void** id);
 
  private:
   friend class ParserTraits;

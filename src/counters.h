@@ -863,8 +863,8 @@ class RuntimeCallTimerScope {
   HT(parse_simple, V8.ParseSimpleMicroSeconds, 1000000, MICROSECOND)           \
   HT(parse_simple_cmp_preparse, V8.ParseSimpleComparePreparseMicroSeconds,     \
      1000000, MICROSECOND)                                                     \
-  HT(parse_simple_cmp_parse, V8.ParseSimpleCompareParseMicroSeconds,           \
-     1000000, MICROSECOND)                                                     \
+  HT(parse_simple_cmp_parse, V8.ParseSimpleCompareParseMicroSeconds, 1000000,  \
+     MICROSECOND)                                                              \
   HT(pre_parse, V8.PreParseMicroSeconds, 1000000, MICROSECOND)                 \
   /* Compilation times. */                                                     \
   HT(compile, V8.CompileMicroSeconds, 1000000, MICROSECOND)                    \

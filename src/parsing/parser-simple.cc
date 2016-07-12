@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "src/ast/ast-value-factory.h"
 #include "src/parsing/parser.h"
+#include "src/ast/ast-value-factory.h"
 #include "src/parsing/scanner-character-streams.h"
 #include "src/parsing/scanner.h"
 #include "src/parsing/token.h"
@@ -101,19 +101,21 @@ class ParserSimple {
 
   class ForThisScope {
    public:
-    typedef void (ParserSimple::*setter) (bool value);
-    typedef bool (ParserSimple::*getter) () const;
+    typedef void (ParserSimple::*setter)(bool value);
+    typedef bool (ParserSimple::*getter)() const;
     ForThisScope(ParserSimple* parser, getter g, setter s)
         : parser_(parser), setter_(s), old_value_((parser->*g)()) {}
     ~ForThisScope() { (parser_->*setter_)(old_value_); }
+
    private:
     ParserSimple* parser_;
     setter setter_;
     bool old_value_;
   };
 
-#define FOR_THIS_SCOPE(getter, setter)                                  \
-  ForThisScope local_##getter(this, &ParserSimple::getter, &ParserSimple::setter)
+#define FOR_THIS_SCOPE(getter, setter)                     \
+  ForThisScope local_##getter(this, &ParserSimple::getter, \
+                              &ParserSimple::setter)
 
  private:
   Scanner scanner_;
@@ -163,13 +165,13 @@ bool Parser::ParseSimple(Isolate* isolate, ParseInfo* info, void** id) {
   Utf16CharacterStream* stream;
   if (source->IsExternalTwoByteString())
     stream = new ExternalTwoByteStringUtf16CharacterStream(
-        Handle<ExternalTwoByteString>::cast(source),
-        start_position, end_position);
+        Handle<ExternalTwoByteString>::cast(source), start_position,
+        end_position);
   else
-    stream = new GenericStringUtf16CharacterStream(
-        source, start_position, end_position);
+    stream = new GenericStringUtf16CharacterStream(source, start_position,
+                                                   end_position);
   ParserSimple parser(info);
-  *id = (void*) &parser;
+  *id = static_cast<void*>(&parser);
   parser.set_allow_harmony_async_await(FLAG_harmony_async_await);
   parser.set_allow_harmony_function_sent(FLAG_harmony_function_sent);
   std::fprintf(stderr, "Parsing simple %p: begin\n", *id);
@@ -222,11 +224,11 @@ void Parser::ParseSimpleComparePreParse(Isolate* isolate, ParseInfo* info,
   Utf16CharacterStream* stream;
   if (source->IsExternalTwoByteString())
     stream = new ExternalTwoByteStringUtf16CharacterStream(
-        Handle<ExternalTwoByteString>::cast(source),
-        start_position, end_position);
+        Handle<ExternalTwoByteString>::cast(source), start_position,
+        end_position);
   else
-    stream = new GenericStringUtf16CharacterStream(
-        source, start_position, end_position);
+    stream = new GenericStringUtf16CharacterStream(source, start_position,
+                                                   end_position);
   Scanner scanner(isolate->unicode_cache());
   scanner.Initialize(stream);
   Zone zone(isolate->allocator());
@@ -234,7 +236,7 @@ void Parser::ParseSimpleComparePreParse(Isolate* isolate, ParseInfo* info,
   CompleteParserRecorder log;
   PreParser preparser(&zone, &scanner, &ast_value_factory, &log,
                       isolate->stack_guard()->real_climit());
-  *id = (void*) &preparser;
+  *id = static_cast<void*>(&preparser);
   preparser.set_print_function_boundaries(true);
   preparser.set_allow_lazy(true);
   preparser.set_allow_natives(FLAG_allow_natives_syntax || info->is_native());
@@ -293,19 +295,19 @@ void Parser::ParseSimpleCompareParse(Isolate* isolate, ParseInfo* info,
   Utf16CharacterStream* stream;
   if (source->IsExternalTwoByteString())
     stream = new ExternalTwoByteStringUtf16CharacterStream(
-        Handle<ExternalTwoByteString>::cast(source),
-        start_position, end_position);
+        Handle<ExternalTwoByteString>::cast(source), start_position,
+        end_position);
   else
-    stream = new GenericStringUtf16CharacterStream(
-        source, start_position, end_position);
+    stream = new GenericStringUtf16CharacterStream(source, start_position,
+                                                   end_position);
   Parser parser(info);
-  *id = (void*) &parser;
+  *id = static_cast<void*>(&parser);
   parser.set_print_function_boundaries(true);
   if (FLAG_trace_parse || parser.allow_natives() || parser.extension_ != NULL)
     parser.ast_value_factory()->Internalize(isolate);
   parser.set_allow_lazy(false);
-  parser.fni_ = new (parser.zone()) FuncNameInferrer(parser.ast_value_factory(),
-                                                     parser.zone());
+  parser.fni_ = new (parser.zone())
+      FuncNameInferrer(parser.ast_value_factory(), parser.zone());
   parser.scanner()->Initialize(stream);
   std::fprintf(stderr, "Parsing with parser %p: begin\n", *id);
   parser.DoParseProgram(info);
@@ -490,7 +492,8 @@ bool ParserSimple::ParseExpression() {
         Next();
         break;
       }
-      if (!scanner()->HasAnyLineTerminatorBeforeNext() && Token::IsCountOp(tok)) {
+      if (!scanner()->HasAnyLineTerminatorBeforeNext() &&
+          Token::IsCountOp(tok)) {
         Next();
         continue;
       }
@@ -741,7 +744,8 @@ bool ParserSimple::ParseFunctionOrGenerator(bool is_async) {
         TRY(Expect(Token::RBRACE));
       }
       std::fprintf(stderr, "simple %p, function boundaries: %d, %d\n",
-                   (void*) this, body_start, scanner()->location().end_pos);
+                   static_cast<void*>(this), body_start,
+                   scanner()->location().end_pos);
       return true;
     }
   }
@@ -807,10 +811,9 @@ bool ParserSimple::ParsePropertyDefinition(bool in_class) {
   bool is_generator = Check(Token::MUL);
   bool is_get = false;
   bool is_set = false;
-  bool is_async =
-      allow_harmony_async_await() && peek() == Token::ASYNC &&
-      !scanner()->HasAnyLineTerminatorAfterNext() &&
-      PeekAhead() != Token::LPAREN;
+  bool is_async = allow_harmony_async_await() && peek() == Token::ASYNC &&
+                  !scanner()->HasAnyLineTerminatorAfterNext() &&
+                  PeekAhead() != Token::LPAREN;
   TRY(ParsePropertyName(&is_get, &is_set));
   switch (peek()) {
     case Token::COLON:
@@ -844,7 +847,8 @@ bool ParserSimple::ParsePropertyDefinition(bool in_class) {
         TRY(Expect(Token::RBRACE));
       }
       std::fprintf(stderr, "simple %p, method boundaries: %d, %d\n",
-                   (void*) this, body_start, scanner()->location().end_pos);
+                   static_cast<void*>(this), body_start,
+                   scanner()->location().end_pos);
       return true;
     }
   }
@@ -1003,8 +1007,8 @@ bool ParserSimple::ParseContinueStatement() {
   DCHECK_EQ(peek(), Token::CONTINUE);
   Next();
   Token::Value tok = peek();
-  if (!scanner()->HasAnyLineTerminatorBeforeNext() &&
-      tok != Token::SEMICOLON && tok != Token::RBRACE && tok != Token::EOS) {
+  if (!scanner()->HasAnyLineTerminatorBeforeNext() && tok != Token::SEMICOLON &&
+      tok != Token::RBRACE && tok != Token::EOS) {
     TRY(ParseIdentifierName());
   }
   TRY(ExpectSemicolon());
@@ -1015,8 +1019,8 @@ bool ParserSimple::ParseBreakStatement() {
   DCHECK_EQ(peek(), Token::BREAK);
   Next();
   Token::Value tok = peek();
-  if (!scanner()->HasAnyLineTerminatorBeforeNext() &&
-      tok != Token::SEMICOLON && tok != Token::RBRACE && tok != Token::EOS)
+  if (!scanner()->HasAnyLineTerminatorBeforeNext() && tok != Token::SEMICOLON &&
+      tok != Token::RBRACE && tok != Token::EOS)
     TRY(ParseIdentifierName());
   TRY(ExpectSemicolon());
   return true;
@@ -1026,8 +1030,8 @@ bool ParserSimple::ParseReturnStatement() {
   DCHECK_EQ(peek(), Token::RETURN);
   Next();
   Token::Value tok = peek();
-  if (!scanner()->HasAnyLineTerminatorBeforeNext() &&
-      tok != Token::SEMICOLON && tok != Token::RBRACE && tok != Token::EOS)
+  if (!scanner()->HasAnyLineTerminatorBeforeNext() && tok != Token::SEMICOLON &&
+      tok != Token::RBRACE && tok != Token::EOS)
     TRY(ParseExpressionList());
   TRY(ExpectSemicolon());
   return true;
@@ -1063,7 +1067,8 @@ bool ParserSimple::ParseConciseBody() {
   else
     TRY(ParseExpression());
   std::fprintf(stderr, "simple %p, arrow function boundaries: %d, %d\n",
-               (void*) this, body_start, scanner()->location().end_pos);
+               static_cast<void*>(this), body_start,
+               scanner()->location().end_pos);
   return true;
 }
 
@@ -1096,17 +1101,11 @@ ParserSimple::~ParserSimple() {
   if (ast_value_factory_owned_) delete ast_value_factory_;
 }
 
-Token::Value ParserSimple::peek() {
-  return scanner()->peek();
-}
+Token::Value ParserSimple::peek() { return scanner()->peek(); }
 
-Token::Value ParserSimple::PeekAhead() {
-  return scanner()->PeekAhead();
-}
+Token::Value ParserSimple::PeekAhead() { return scanner()->PeekAhead(); }
 
-Token::Value ParserSimple::Next() {
-  return scanner()->Next();
-}
+Token::Value ParserSimple::Next() { return scanner()->Next(); }
 
 bool ParserSimple::Check(Token::Value token) {
   if (peek() != token) return false;
@@ -1115,18 +1114,18 @@ bool ParserSimple::Check(Token::Value token) {
 }
 
 bool ParserSimple::Error() {
-  std::fprintf(
-      stderr, "Parsing simple %p: error at %d, unexpected token %s\n",
-      (void*) this, scanner()->peek_location().beg_pos, Token::Name(peek()));
+  std::fprintf(stderr, "Parsing simple %p: error at %d, unexpected token %s\n",
+               static_cast<void*>(this), scanner()->peek_location().beg_pos,
+               Token::Name(peek()));
   return false;
 }
 
 bool ParserSimple::Expect(Token::Value token) {
   if (Check(token)) return true;
-  std::fprintf(
-      stderr, "Parsing simple %p: error at %d, expected %s, found %s\n",
-      (void*) this, scanner()->peek_location().beg_pos, Token::Name(token),
-      Token::Name(peek()));
+  std::fprintf(stderr,
+               "Parsing simple %p: error at %d, expected %s, found %s\n",
+               static_cast<void*>(this), scanner()->peek_location().beg_pos,
+               Token::Name(token), Token::Name(peek()));
   return false;
 }
 
@@ -1141,8 +1140,7 @@ bool ParserSimple::ExpectSemicolon() {
       case Token::EOS:
         return true;
       default:
-        if (scanner()->HasAnyLineTerminatorBeforeNext())
-          return true;
+        if (scanner()->HasAnyLineTerminatorBeforeNext()) return true;
         break;
     }
     return Error();
@@ -1155,9 +1153,7 @@ const AstRawString* ParserSimple::GetSymbol() {
   return result;
 }
 
-Scanner* ParserSimple::scanner() {
-  return &scanner_;
-}
+Scanner* ParserSimple::scanner() { return &scanner_; }
 
 AstValueFactory* ParserSimple::ast_value_factory() {
   return ast_value_factory_;
@@ -1204,7 +1200,7 @@ bool ParserSimple::peek_any_identifier() {
 
 bool ParserSimple::PeekContextualKeyword(const char* keyword) {
   return peek() == Token::IDENTIFIER &&
-      scanner()->is_next_contextual_keyword(CStrVector(keyword));
+         scanner()->is_next_contextual_keyword(CStrVector(keyword));
 }
 
 

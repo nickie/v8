@@ -4383,7 +4383,8 @@ FunctionLiteral* Parser::ParseFunctionLiteral(
     }
     if (print_function_boundaries_)
       std::fprintf(stderr, "parser %p, function boundaries: %d, %d\n",
-                   (void*) this, body_start, scanner()->location().end_pos);
+                   static_cast<void*>(this), body_start,
+                   scanner()->location().end_pos);
 
     // Parsing the body may change the language mode in our scope.
     language_mode = scope->language_mode();

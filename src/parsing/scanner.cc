@@ -58,7 +58,8 @@ Scanner::~Scanner() {
 void Scanner::Initialize(Utf16CharacterStream* source) {
   if (print_scanner_symbols_) {
     char buf[256];
-    std::sprintf(buf, "scanner_%p.log", (void*) this);
+    std::snprintf(buf, sizeof(buf), "scanner_%p.log",
+                  static_cast<void*>(this));
     logfile_ = std::fopen(buf, "w");
   }
   source_ = source;

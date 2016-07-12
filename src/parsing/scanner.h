@@ -834,7 +834,7 @@ class Scanner {
       std::fprintf(logfile_, "%-20s", Token::Name(next_.token));
       if (next_.literal_chars && is_next_literal_one_byte()) {
         auto v = next_literal_one_byte_string();
-        for (int i=0; i<v.length(); ++i) std::fprintf(logfile_, "%c", v[i]);
+        for (int i = 0; i < v.length(); ++i) std::fprintf(logfile_, "%c", v[i]);
         std::fprintf(logfile_, "\n");
       } else {
         std::fprintf(logfile_, "-\n");
