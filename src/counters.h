@@ -691,6 +691,8 @@ class RuntimeCallTimer {
   V(ParseSimple)                                    \
   V(ParseSimpleComparePreparse)                     \
   V(ParseSimpleCompareParse)                        \
+  V(ParseSimpleCompareParseLazy)                    \
+  V(ParseSimpleCompareScan)                         \
   V(PropertyCallback)                               \
   V(PrototypeMap_TransitionToAccessorProperty)      \
   V(PrototypeMap_TransitionToDataProperty)          \
@@ -864,6 +866,10 @@ class RuntimeCallTimerScope {
   HT(parse_simple_cmp_preparse, V8.ParseSimpleComparePreparseMicroSeconds,     \
      1000000, MICROSECOND)                                                     \
   HT(parse_simple_cmp_parse, V8.ParseSimpleCompareParseMicroSeconds, 1000000,  \
+     MICROSECOND)                                                              \
+  HT(parse_simple_cmp_parse_lazy, V8.ParseSimpleCompareParseLazyMicroSeconds,  \
+     1000000, MICROSECOND)                                                     \
+  HT(parse_simple_cmp_scan, V8.ParseSimpleCompareScanMicroSeconds, 1000000,    \
      MICROSECOND)                                                              \
   HT(pre_parse, V8.PreParseMicroSeconds, 1000000, MICROSECOND)                 \
   /* Compilation times. */                                                     \

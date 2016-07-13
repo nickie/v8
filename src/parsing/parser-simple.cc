@@ -268,9 +268,10 @@ void Parser::ParseSimpleComparePreParse(Isolate* isolate, ParseInfo* info,
 // Parse the whole script, for comparison purposes.
 
 void Parser::ParseSimpleCompareParse(Isolate* isolate, ParseInfo* info,
-                                     void** id) {
+                                     bool allow_lazy, void** id) {
   RuntimeCallTimerScope runtimeTimer(
-      isolate, &RuntimeCallStats::ParseSimpleCompareParse);
+      isolate, allow_lazy ? &RuntimeCallStats::ParseSimpleCompareParseLazy
+                          : &RuntimeCallStats::ParseSimpleCompareParse);
   Handle<String> source(String::cast(info->script()->source()));
 
   base::ElapsedTimer timer;
@@ -305,7 +306,7 @@ void Parser::ParseSimpleCompareParse(Isolate* isolate, ParseInfo* info,
   parser.set_print_function_boundaries(true);
   if (FLAG_trace_parse || parser.allow_natives() || parser.extension_ != NULL)
     parser.ast_value_factory()->Internalize(isolate);
-  parser.set_allow_lazy(false);
+  parser.set_allow_lazy(allow_lazy);
   parser.fni_ = new (parser.zone())
       FuncNameInferrer(parser.ast_value_factory(), parser.zone());
   parser.scanner()->Initialize(stream);
@@ -316,7 +317,55 @@ void Parser::ParseSimpleCompareParse(Isolate* isolate, ParseInfo* info,
 
   if (FLAG_trace_parse) {
     double ms = timer.Elapsed().InMillisecondsF();
-    PrintF("[simple (comparison) parsing took %0.3f ms]\n", ms);
+    PrintF("[simple (comparison) parsing %s took %0.3f ms]\n",
+           allow_lazy ? "lazy" : "eager", ms);
+  }
+}
+
+
+// Simply scan the whole script, for comparison purposes.
+
+void Parser::ParseSimpleCompareScan(Isolate* isolate, ParseInfo* info) {
+  RuntimeCallTimerScope runtimeTimer(isolate,
+                                     &RuntimeCallStats::ParseSimpleCompareScan);
+  Handle<String> source(String::cast(info->script()->source()));
+
+  base::ElapsedTimer timer;
+  if (FLAG_trace_parse) {
+    timer.Start();
+  }
+
+  source = String::Flatten(source);
+
+  int start_position = 0;
+  int end_position = source->length();
+
+  if (info->is_lazy()) {
+    DCHECK(!info->is_eval());
+    if (info->shared_info()->is_function()) {
+      Handle<SharedFunctionInfo> shared_info = info->shared_info();
+      start_position = shared_info->start_position();
+      end_position = shared_info->end_position();
+    }
+  }
+
+  Utf16CharacterStream* stream;
+  if (source->IsExternalTwoByteString())
+    stream = new ExternalTwoByteStringUtf16CharacterStream(
+        Handle<ExternalTwoByteString>::cast(source), start_position,
+        end_position);
+  else
+    stream = new GenericStringUtf16CharacterStream(source, start_position,
+                                                   end_position);
+  Scanner scanner(isolate->unicode_cache());
+  scanner.Initialize(stream);
+  scanner.set_allow_harmony_exponentiation_operator(
+      FLAG_harmony_exponentiation_operator);
+  while (scanner.peek() != Token::EOS) scanner.Next();
+
+  if (FLAG_trace_parse) {
+    double ms = timer.Elapsed().InMillisecondsF();
+    PrintF("[simple scanning took %0.3f ms]\n", ms);
   }
 }
 

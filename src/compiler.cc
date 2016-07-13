@@ -1095,9 +1095,11 @@ Handle<SharedFunctionInfo> CompileToplevel(CompilationInfo* info) {
         void* preparser;
         Parser::ParseSimpleComparePreParse(isolate, parse_info, &preparser);
         void* parser;
-        Parser::ParseSimpleCompareParse(isolate, parse_info, &parser);
+        Parser::ParseSimpleCompareParse(isolate, parse_info, false, &parser);
         std::fprintf(stderr, "Compare: simple=%p, preparser=%p, parser=%p\n",
                      simple, preparser, parser);
+        Parser::ParseSimpleCompareParse(isolate, parse_info, true, &parser);
+        Parser::ParseSimpleCompareScan(isolate, parse_info);
       }
       if (!Parser::ParseStatic(parse_info)) {
         return Handle<SharedFunctionInfo>::null();

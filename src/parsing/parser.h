@@ -719,7 +719,8 @@ class Parser : public ParserBase<ParserTraits> {
   static void ParseSimpleComparePreParse(Isolate* isolate, ParseInfo* info,
                                          void** id);
   static void ParseSimpleCompareParse(Isolate* isolate, ParseInfo* info,
-                                      void** id);
+                                      bool allow_lazy, void** id);
+  static void ParseSimpleCompareScan(Isolate* isolate, ParseInfo* info);
 
  private:
   friend class ParserTraits;
