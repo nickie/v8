@@ -855,17 +855,6 @@ Parser::Parser(ParseInfo* info)
   }
 }
 
-class CostCounter : public AstTraversalVisitor {
- public:
-  CostCounter(Isolate* isolate) : AstTraversalVisitor(isolate) {}
-  ~CostCounter() override {}
-
-  void Visit(AstNode* node) {
-    PrintF("cost: %d + %d\n", node->cost(false), node->cost(true));
-    AstTraversalVisitor::Visit(node);
-  }
-};
-
 FunctionLiteral* Parser::ParseProgram(Isolate* isolate, ParseInfo* info) {
   COST_PREAMBLE();
   // TODO(bmeurer): We temporarily need to pass allow_nesting = true here,
@@ -916,8 +905,6 @@ FunctionLiteral* Parser::ParseProgram(Isolate* isolate, ParseInfo* info) {
   }
   HandleSourceURLComments(isolate, info->script());
 
-  CostCounter c(isolate);
-  c.Visit(result);
   if (FLAG_trace_parse && result != NULL) {
     double ms = timer.Elapsed().InMillisecondsF();
     if (info->is_eval()) {
@@ -930,7 +917,6 @@ FunctionLiteral* Parser::ParseProgram(Isolate* isolate, ParseInfo* info) {
       PrintF("[parsing script");
     }
     PrintF(" - took %0.3f ms]\n", ms);
-    c.Report();
   }
   if (produce_cached_parse_data()) {
     if (result != NULL) *info->cached_data() = recorder.GetScriptData();
@@ -1077,14 +1063,11 @@ FunctionLiteral* Parser::ParseLazy(Isolate* isolate, ParseInfo* info) {
     result = COST(ParseLazy(isolate, info, &stream));
   }
 
-  CostCounter c(isolate);
-  c.Visit(result);
   if (FLAG_trace_parse && result != NULL) {
     double ms = timer.Elapsed().InMillisecondsF();
     base::SmartArrayPointer<char> name_chars =
         result->debug_name()->ToCString();
     PrintF("[parsing function: %s - took %0.3f ms]\n", name_chars.get(), ms);
-    c.Report();
   }
   return result;
 }
@@ -2804,7 +2787,7 @@ Statement* Parser::ParseReturnStatement(bool* ok) {
       // Because of the return code rewriting that happens in case of a subclass
       // constructor we don't want to accept tail calls, therefore we don't set
       // ReturnExprScope to kInsideValidReturnStatement here.
-      return_value = ParseExpression(true, CHECK_OK);
+      return_value = COST(ParseExpression(true, CHECK_OK));
 
       // For subclass constructors we need to return this in case of undefined
       // return a Smi (transformed into an exception in the ConstructStub)
@@ -2891,7 +2874,7 @@ Statement* Parser::ParseWithStatement(ZoneList<const AstRawString*>* labels,
   }
 
   Expect(Token::LPAREN, CHECK_OK);
-  Expression* expr = ParseExpression(true, CHECK_OK);
+  Expression* expr = COST(ParseExpression(true, CHECK_OK));
   Expect(Token::RPAREN, CHECK_OK);
 
   Scope* with_scope = NewScope(scope(), WITH_SCOPE);
@@ -3104,7 +3087,7 @@ TryStatement* Parser::ParseTryStatement(bool* ok) {
           name = ParseIdentifier(kDontAllowRestrictedIdentifiers, CHECK_OK);
         } else {
           ExpressionClassifier pattern_classifier(this);
-          pattern = ParsePrimaryExpression(&pattern_classifier, CHECK_OK);
+          pattern = COST(ParsePrimaryExpression(&pattern_classifier, CHECK_OK));
           ValidateBindingPattern(&pattern_classifier, CHECK_OK);
         }
         catch_variable = catch_scope->DeclareLocal(
@@ -3175,7 +3158,7 @@ TryStatement* Parser::ParseTryStatement(bool* ok) {
   DCHECK(tok == Token::FINALLY || catch_block != NULL);
   if (tok == Token::FINALLY) {
     Consume(Token::FINALLY);
-    finally_block = ParseBlock(NULL, CHECK_OK);
+    finally_block = COST(ParseBlock(NULL, CHECK_OK));
   }
 
   // Simplify the AST nodes by converting:
@@ -5535,6 +5518,12 @@ bool Parser::Parse(ParseInfo* info) {
     result = ParseProgram(isolate, info);
   }
   info->set_literal(result);
+
+  if (FLAG_ast_cost && result != NULL) {
+    CostCounter c(isolate);
+    c.Visit(result);
+    if (FLAG_trace_parse) c.Report();
+  }
 
   Internalize(isolate, info->script(), result == NULL);
   DCHECK(ast_value_factory()->IsInternalized());

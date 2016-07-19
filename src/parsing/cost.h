@@ -1,4 +1,4 @@
-// Copyright 2012 the V8 project authors. All rights reserved.
+// Copyright 2016 the V8 project authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -21,11 +21,14 @@ class CostCounter : public AstTraversalVisitor {
     for (int i = 0; i <= CostCounter::MAX; i++) totals_[i] += counters_[i];
   }
 
-  void Visit(AstNode* node) override {
+  void Visit(AstNode* node) {
+    DCHECK_NOT_NULL(node);
     int c = node->cost(false);
     if (c > CostCounter::MAX) c = CostCounter::MAX;
+    std::fprintf(stderr, "counting cost %d for node type %d\n", c,
+                 node->node_type());
     counters_[c]++;
-    if (!CheckStackOverflow()) node->Accept(this);
+    AstTraversalVisitor::Visit(node);
   }
 
   void Report() const { CostCounter::Report(counters_, std::cout); }
