@@ -5,21 +5,20 @@
 #ifndef V8_PARSING_COST_H_
 #define V8_PARSING_COST_H_
 
-#include <iostream>
 #include <iomanip>
+#include <iostream>
 
 #include "src/ast/ast.h"
 
 namespace v8 {
 namespace internal {
 
-class CostCounter: public AstTraversalVisitor {
+class CostCounter : public AstTraversalVisitor {
  public:
-  CostCounter(Isolate* isolate) : AstTraversalVisitor(isolate),
-                                  counters_(CostCounter::MAX + 1) {}
+  CostCounter(Isolate* isolate)
+      : AstTraversalVisitor(isolate), counters_(CostCounter::MAX + 1) {}
   ~CostCounter() override {
-    for (int i = 0; i <= CostCounter::MAX; i++)
-      totals_[i] += counters_[i];
+    for (int i = 0; i <= CostCounter::MAX; i++) totals_[i] += counters_[i];
   }
 
   void Visit(AstNode* node) override {
@@ -37,22 +36,20 @@ class CostCounter: public AstTraversalVisitor {
   static void ResetTotals() { totals_.assign(CostCounter::MAX, 0); }
 
  private:
-  template<class Alloc>
-  static void Report(const std::vector<int, Alloc>& counters,
-                     std::ostream& os, const char* msg = "  cost ") {
+  template <class Alloc>
+  static void Report(const std::vector<int, Alloc>& counters, std::ostream& os,
+                     const char* msg = "  cost ") {
     long double sum = 0;
     long double count = 0;
     os << msg;
     for (int i = 0; i <= CostCounter::MAX; i++)
       if (counters[i] > 0) {
         os << i << ":" << counters[i] << ", ";
-        sum += (long double) i * counters[i];
+        sum += (long double)i * counters[i];
         count += counters[i];
       }
-    os << "average: "
-       << std::fixed << std::setprecision(3)
-       << (long double) (count > 0 ? sum / count : 0)
-       << "." << std::endl;
+    os << "average: " << std::fixed << std::setprecision(3)
+       << (long double)(count > 0 ? sum / count : 0) << "." << std::endl;
   }
 
   static const int MAX = 64;

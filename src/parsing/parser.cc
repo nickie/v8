@@ -855,9 +855,9 @@ Parser::Parser(ParseInfo* info)
   }
 }
 
-class CostCounter: public AstTraversalVisitor {
+class CostCounter : public AstTraversalVisitor {
  public:
-  CostCounter(Isolate* isolate): AstTraversalVisitor(isolate) {}
+  CostCounter(Isolate* isolate) : AstTraversalVisitor(isolate) {}
   ~CostCounter() override {}
 
   void Visit(AstNode* node) {
@@ -1222,11 +1222,10 @@ FunctionLiteral* Parser::ParseLazy(Isolate* isolate, ParseInfo* info,
           shared_info->start_position(), shared_info->end_position(),
           shared_info->language_mode()));
     } else {
-      result =
-          COST(ParseFunctionLiteral(raw_name, Scanner::Location::invalid(),
-                                    kSkipFunctionNameCheck, shared_info->kind(),
-                                    kNoSourcePosition, function_type,
-                                    shared_info->language_mode(), &ok));
+      result = COST(ParseFunctionLiteral(
+          raw_name, Scanner::Location::invalid(), kSkipFunctionNameCheck,
+          shared_info->kind(), kNoSourcePosition, function_type,
+          shared_info->language_mode(), &ok));
     }
     // Make sure the results agree.
     DCHECK(ok == (result != nullptr));
@@ -1656,8 +1655,8 @@ Statement* Parser::ParseExportDefault(bool* ok) {
       if (allow_harmony_async_await() && PeekAhead() == Token::FUNCTION &&
           !scanner()->HasAnyLineTerminatorAfterNext()) {
         Consume(Token::ASYNC);
-        result = COST(ParseAsyncFunctionDeclaration(&local_names, true,
-                                                    CHECK_OK));
+        result =
+            COST(ParseAsyncFunctionDeclaration(&local_names, true, CHECK_OK));
         break;
       }
     /* falls through */
@@ -1925,8 +1924,8 @@ Statement* Parser::ParseSubStatement(
       return COST(ParseVariableStatement(kStatement, NULL, ok));
 
     default:
-      return COST(ParseExpressionOrLabelledStatement(labels, allow_function,
-                                                     ok));
+      return COST(
+          ParseExpressionOrLabelledStatement(labels, allow_function, ok));
   }
 }
 
@@ -2172,8 +2171,8 @@ Statement* Parser::ParseNativeDeclaration(bool* ok) {
   Declaration* declaration =
       COST(factory()->NewVariableDeclaration(proxy, VAR, scope(), pos));
   Declare(declaration, DeclarationDescriptor::NORMAL, true, CHECK_OK);
-  NativeFunctionLiteral* lit = COST(factory()->NewNativeFunctionLiteral(
-      name, extension_, kNoSourcePosition));
+  NativeFunctionLiteral* lit = COST(
+      factory()->NewNativeFunctionLiteral(name, extension_, kNoSourcePosition));
   return COST(factory()->NewExpressionStatement(
       factory()->NewAssignment(Token::INIT, proxy, lit, kNoSourcePosition),
       pos));
@@ -2409,8 +2408,8 @@ Block* Parser::ParseVariableStatement(VariableDeclarationContext var_context,
   // is inside an initializer block, it is ignored.
 
   DeclarationParsingResult parsing_result;
-  Block* result = COST(ParseVariableDeclarations(
-      var_context, &parsing_result, names, CHECK_OK));
+  Block* result = COST(
+      ParseVariableDeclarations(var_context, &parsing_result, names, CHECK_OK));
   ExpectSemicolon(CHECK_OK);
   return result;
 }
@@ -2692,7 +2691,8 @@ IfStatement* Parser::ParseIfStatement(ZoneList<const AstRawString*>* labels,
   Expect(Token::LPAREN, CHECK_OK);
   Expression* condition = COST(ParseExpression(true, CHECK_OK));
   Expect(Token::RPAREN, CHECK_OK);
-  Statement* then_statement = COST(ParseScopedStatement(labels, false, CHECK_OK));
+  Statement* then_statement =
+      COST(ParseScopedStatement(labels, false, CHECK_OK));
   Statement* else_statement = NULL;
   if (peek() == Token::ELSE) {
     Next();
@@ -2700,8 +2700,8 @@ IfStatement* Parser::ParseIfStatement(ZoneList<const AstRawString*>* labels,
   } else {
     else_statement = COST(factory()->NewEmptyStatement(kNoSourcePosition));
   }
-  return COST(factory()->NewIfStatement(
-      condition, then_statement, else_statement, pos));
+  return COST(factory()->NewIfStatement(condition, then_statement,
+                                        else_statement, pos));
 }
 
 
@@ -2969,8 +2969,8 @@ Statement* Parser::ParseSwitchStatement(ZoneList<const AstRawString*>* labels,
   Assignment* tag_assign = COST(factory()->NewAssignment(
       Token::ASSIGN, factory()->NewVariableProxy(tag_variable), tag,
       tag->position()));
-  Statement* tag_statement = COST(factory()->NewExpressionStatement(
-      tag_assign, kNoSourcePosition));
+  Statement* tag_statement =
+      COST(factory()->NewExpressionStatement(tag_assign, kNoSourcePosition));
   switch_block->statements()->Add(tag_statement, zone());
 
   // make statement: undefined;
@@ -2978,7 +2978,8 @@ Statement* Parser::ParseSwitchStatement(ZoneList<const AstRawString*>* labels,
   // statements don't have a value.
   switch_block->statements()->Add(
       COST(factory()->NewExpressionStatement(
-          factory()->NewUndefinedLiteral(kNoSourcePosition), kNoSourcePosition)),
+          factory()->NewUndefinedLiteral(kNoSourcePosition),
+          kNoSourcePosition)),
       zone());
 
   Block* cases_block =
@@ -3185,9 +3186,9 @@ TryStatement* Parser::ParseTryStatement(bool* ok) {
   if (catch_block != NULL && finally_block != NULL) {
     // If we have both, create an inner try/catch.
     DCHECK(catch_scope != NULL && catch_variable != NULL);
-    TryCatchStatement* statement = COST(factory()->NewTryCatchStatement(
-        try_block, catch_scope, catch_variable, catch_block,
-        kNoSourcePosition));
+    TryCatchStatement* statement = COST(
+        factory()->NewTryCatchStatement(try_block, catch_scope, catch_variable,
+                                        catch_block, kNoSourcePosition));
     try_block = factory()->NewBlock(NULL, 1, false, kNoSourcePosition);
     try_block->statements()->Add(statement, zone());
     catch_block = NULL;  // Clear to indicate it's been handled.
@@ -3287,8 +3288,8 @@ Expression* Parser::BuildIteratorNextResult(Expression* iterator,
   Expression* next_call =
       COST(factory()->NewCall(next_property, next_arguments, pos));
   Expression* result_proxy = COST(factory()->NewVariableProxy(result));
-  Expression* left = COST(factory()->NewAssignment(
-      Token::ASSIGN, result_proxy, next_call, pos));
+  Expression* left = COST(
+      factory()->NewAssignment(Token::ASSIGN, result_proxy, next_call, pos));
 
   // %_IsJSReceiver(...)
   ZoneList<Expression*>* is_spec_object_args =
@@ -3331,8 +3332,11 @@ Statement* Parser::InitializeForEachStatement(ForEachStatement* stmt,
           this, factory()->NewAssignment(Token::ASSIGN, each, temp_proxy,
                                          kNoSourcePosition),
           scope());
-      auto block = COST(factory()->NewBlock(nullptr, 2, false, kNoSourcePosition));
-      block->statements()->Add(COST(factory()->NewExpressionStatement(assign_each, kNoSourcePosition)), zone());
+      auto block =
+          COST(factory()->NewBlock(nullptr, 2, false, kNoSourcePosition));
+      block->statements()->Add(COST(factory()->NewExpressionStatement(
+                                   assign_each, kNoSourcePosition)),
+                               zone());
       block->statements()->Add(body, zone());
       body = block;
       each = COST(factory()->NewVariableProxy(temp));
@@ -3387,8 +3391,8 @@ Statement* Parser::InitializeForOfStatement(ForOfStatement* for_of,
     Expression* done_literal = COST(factory()->NewStringLiteral(
         ast_value_factory()->done_string(), kNoSourcePosition));
     Expression* result_proxy = COST(factory()->NewVariableProxy(result));
-    result_done = COST(factory()->NewProperty(result_proxy, done_literal,
-                                              kNoSourcePosition));
+    result_done = COST(
+        factory()->NewProperty(result_proxy, done_literal, kNoSourcePosition));
   }
 
   // result.value
@@ -3397,7 +3401,8 @@ Statement* Parser::InitializeForOfStatement(ForOfStatement* for_of,
     Expression* value_literal =
         COST(factory()->NewStringLiteral(avfactory->value_string(), nopos));
     Expression* result_proxy = COST(factory()->NewVariableProxy(result));
-    result_value = COST(factory()->NewProperty(result_proxy, value_literal, nopos));
+    result_value =
+        COST(factory()->NewProperty(result_proxy, value_literal, nopos));
   }
 
   // {{completion = kAbruptCompletion;}}
@@ -3433,8 +3438,8 @@ Statement* Parser::InitializeForOfStatement(ForOfStatement* for_of,
   // each = #result_value;
   Expression* assign_each;
   {
-    assign_each =
-        COST(factory()->NewAssignment(Token::ASSIGN, each, result_value, nopos));
+    assign_each = COST(
+        factory()->NewAssignment(Token::ASSIGN, each, result_value, nopos));
     if (each->IsArrayLiteral() || each->IsObjectLiteral()) {
       assign_each = PatternRewriter::RewriteDestructuringAssignment(
           this, assign_each->AsAssignment(), scope());
@@ -3516,8 +3521,8 @@ Statement* Parser::DesugarLexicalBindingsInForStatement(
   DCHECK(names->length() > 0);
   ZoneList<Variable*> temps(names->length(), zone());
 
-  Block* outer_block =
-      COST(factory()->NewBlock(NULL, names->length() + 4, false, kNoSourcePosition));
+  Block* outer_block = COST(
+      factory()->NewBlock(NULL, names->length() + 4, false, kNoSourcePosition));
 
   // Add statement: let/const x = i.
   outer_block->statements()->Add(init, zone());
@@ -3530,8 +3535,8 @@ Statement* Parser::DesugarLexicalBindingsInForStatement(
     VariableProxy* proxy = NewUnresolved(names->at(i), LET);
     Variable* temp = scope()->NewTemporary(temp_name);
     VariableProxy* temp_proxy = factory()->NewVariableProxy(temp);
-    Assignment* assignment = COST(factory()->NewAssignment(Token::ASSIGN, temp_proxy,
-                                                           proxy, kNoSourcePosition));
+    Assignment* assignment = COST(factory()->NewAssignment(
+        Token::ASSIGN, temp_proxy, proxy, kNoSourcePosition));
     Statement* assignment_statement =
         COST(factory()->NewExpressionStatement(assignment, kNoSourcePosition));
     outer_block->statements()->Add(assignment_statement, zone());
@@ -3554,7 +3559,8 @@ Statement* Parser::DesugarLexicalBindingsInForStatement(
   // make statement: undefined;
   outer_block->statements()->Add(
       COST(factory()->NewExpressionStatement(
-          factory()->NewUndefinedLiteral(kNoSourcePosition), kNoSourcePosition)),
+          factory()->NewUndefinedLiteral(kNoSourcePosition),
+          kNoSourcePosition)),
       zone());
 
   // Make statement: outer: for (;;)
@@ -3567,12 +3573,13 @@ Statement* Parser::DesugarLexicalBindingsInForStatement(
   outer_block->statements()->Add(outer_loop, zone());
   outer_block->set_scope(scope());
 
-  Block* inner_block = COST(factory()->NewBlock(NULL, 3, false, kNoSourcePosition));
+  Block* inner_block =
+      COST(factory()->NewBlock(NULL, 3, false, kNoSourcePosition));
   {
     BlockState block_state(&scope_state_, inner_scope);
 
-    Block* ignore_completion_block =
-        COST(factory()->NewBlock(NULL, names->length() + 3, true, kNoSourcePosition));
+    Block* ignore_completion_block = COST(factory()->NewBlock(
+        NULL, names->length() + 3, true, kNoSourcePosition));
     ZoneList<Variable*> inner_vars(names->length(), zone());
     // For each let variable x:
     //    make statement: let/const x = temp_x.
@@ -3582,11 +3589,12 @@ Statement* Parser::DesugarLexicalBindingsInForStatement(
           proxy, mode, scope(), kNoSourcePosition));
       Declare(declaration, DeclarationDescriptor::NORMAL, true, CHECK_OK);
       inner_vars.Add(declaration->proxy()->var(), zone());
-      VariableProxy* temp_proxy = COST(factory()->NewVariableProxy(temps.at(i)));
+      VariableProxy* temp_proxy =
+          COST(factory()->NewVariableProxy(temps.at(i)));
       Assignment* assignment = COST(factory()->NewAssignment(
           Token::INIT, proxy, temp_proxy, kNoSourcePosition));
-      Statement* assignment_statement =
-          COST(factory()->NewExpressionStatement(assignment, kNoSourcePosition));
+      Statement* assignment_statement = COST(
+          factory()->NewExpressionStatement(assignment, kNoSourcePosition));
       DCHECK(init->position() != kNoSourcePosition);
       proxy->var()->set_initializer_position(init->position());
       ignore_completion_block->statements()->Add(assignment_statement, zone());
@@ -3598,20 +3606,22 @@ Statement* Parser::DesugarLexicalBindingsInForStatement(
       Expression* compare = NULL;
       // Make compare expression: first == 1.
       {
-        Expression* const1 = COST(factory()->NewSmiLiteral(1, kNoSourcePosition));
+        Expression* const1 =
+            COST(factory()->NewSmiLiteral(1, kNoSourcePosition));
         VariableProxy* first_proxy = COST(factory()->NewVariableProxy(first));
-        compare = COST(factory()->NewCompareOperation(Token::EQ, first_proxy, const1,
-                                                      kNoSourcePosition));
+        compare = COST(factory()->NewCompareOperation(
+            Token::EQ, first_proxy, const1, kNoSourcePosition));
       }
       Statement* clear_first = NULL;
       // Make statement: first = 0.
       {
         VariableProxy* first_proxy = factory()->NewVariableProxy(first);
-        Expression* const0 = COST(factory()->NewSmiLiteral(0, kNoSourcePosition));
+        Expression* const0 =
+            COST(factory()->NewSmiLiteral(0, kNoSourcePosition));
         Assignment* assignment = COST(factory()->NewAssignment(
             Token::ASSIGN, first_proxy, const0, kNoSourcePosition));
-        clear_first =
-            COST(factory()->NewExpressionStatement(assignment, kNoSourcePosition));
+        clear_first = COST(
+            factory()->NewExpressionStatement(assignment, kNoSourcePosition));
       }
       Statement* clear_first_or_next = COST(factory()->NewIfStatement(
           compare, clear_first, next, kNoSourcePosition));
@@ -3625,8 +3635,8 @@ Statement* Parser::DesugarLexicalBindingsInForStatement(
       Expression* const1 = COST(factory()->NewSmiLiteral(1, kNoSourcePosition));
       Assignment* assignment = COST(factory()->NewAssignment(
           Token::ASSIGN, flag_proxy, const1, kNoSourcePosition));
-      Statement* assignment_statement =
-          COST(factory()->NewExpressionStatement(assignment, kNoSourcePosition));
+      Statement* assignment_statement = COST(
+          factory()->NewExpressionStatement(assignment, kNoSourcePosition));
       ignore_completion_block->statements()->Add(assignment_statement, zone());
     }
 
@@ -3646,8 +3656,8 @@ Statement* Parser::DesugarLexicalBindingsInForStatement(
     {
       Expression* const1 = COST(factory()->NewSmiLiteral(1, kNoSourcePosition));
       VariableProxy* flag_proxy = COST(factory()->NewVariableProxy(flag));
-      flag_cond = COST(factory()->NewCompareOperation(Token::EQ, flag_proxy, const1,
-                                                      kNoSourcePosition));
+      flag_cond = COST(factory()->NewCompareOperation(
+          Token::EQ, flag_proxy, const1, kNoSourcePosition));
     }
 
     // Create chain of expressions "flag = 0, temp_x = x, ..."
@@ -3657,9 +3667,10 @@ Statement* Parser::DesugarLexicalBindingsInForStatement(
       // Make expression: flag = 0.
       {
         VariableProxy* flag_proxy = factory()->NewVariableProxy(flag);
-        Expression* const0 = COST(factory()->NewSmiLiteral(0, kNoSourcePosition));
-        compound_next = COST(factory()->NewAssignment(Token::ASSIGN, flag_proxy,
-                                                      const0, kNoSourcePosition));
+        Expression* const0 =
+            COST(factory()->NewSmiLiteral(0, kNoSourcePosition));
+        compound_next = COST(factory()->NewAssignment(
+            Token::ASSIGN, flag_proxy, const0, kNoSourcePosition));
       }
 
       // Make the comma-separated list of temp_x = x assignments.
@@ -3674,8 +3685,8 @@ Statement* Parser::DesugarLexicalBindingsInForStatement(
             Token::COMMA, compound_next, assignment, kNoSourcePosition));
       }
 
-      compound_next_statement =
-          COST(factory()->NewExpressionStatement(compound_next, kNoSourcePosition));
+      compound_next_statement = COST(
+          factory()->NewExpressionStatement(compound_next, kNoSourcePosition));
     }
 
     // Make statement: labels: for (; flag == 1; flag = 0, temp_x = x)
@@ -3690,16 +3701,17 @@ Statement* Parser::DesugarLexicalBindingsInForStatement(
       Expression* compare = NULL;
       // Make compare expresion: flag == 1.
       {
-        Expression* const1 = COST(factory()->NewSmiLiteral(1, kNoSourcePosition));
+        Expression* const1 =
+            COST(factory()->NewSmiLiteral(1, kNoSourcePosition));
         VariableProxy* flag_proxy = COST(factory()->NewVariableProxy(flag));
-        compare = COST(factory()->NewCompareOperation(Token::EQ, flag_proxy, const1,
-                                                      kNoSourcePosition));
+        compare = COST(factory()->NewCompareOperation(
+            Token::EQ, flag_proxy, const1, kNoSourcePosition));
       }
       Statement* stop =
           COST(factory()->NewBreakStatement(outer_loop, kNoSourcePosition));
       Statement* empty = COST(factory()->NewEmptyStatement(kNoSourcePosition));
-      Statement* if_flag_break =
-          COST(factory()->NewIfStatement(compare, stop, empty, kNoSourcePosition));
+      Statement* if_flag_break = COST(
+          factory()->NewIfStatement(compare, stop, empty, kNoSourcePosition));
       Block* ignore_completion_block =
           COST(factory()->NewBlock(NULL, 1, true, kNoSourcePosition));
       ignore_completion_block->statements()->Add(if_flag_break, zone());
@@ -3719,8 +3731,8 @@ Statement* Parser::ParseScopedStatement(ZoneList<const AstRawString*>* labels,
   COST_PREAMBLE();
   if (is_strict(language_mode()) || peek() != Token::FUNCTION ||
       (legacy && allow_harmony_restrictive_declarations())) {
-    return COST(ParseSubStatement(labels, kDisallowLabelledFunctionStatement,
-                                  ok));
+    return COST(
+        ParseSubStatement(labels, kDisallowLabelledFunctionStatement, ok));
   } else {
     if (legacy) {
       ++use_counts_[v8::Isolate::kLegacyFunctionDeclaration];
@@ -4089,7 +4101,8 @@ Statement* Parser::ParseForStatement(ZoneList<const AstRawString*>* labels,
       //   }
       // just in case b introduces a lexical binding some other way, e.g., if b
       // is a FunctionDeclaration.
-      Block* block = COST(factory()->NewBlock(NULL, 2, false, kNoSourcePosition));
+      Block* block =
+          COST(factory()->NewBlock(NULL, 2, false, kNoSourcePosition));
       if (init != nullptr) {
         block->statements()->Add(init, zone());
       }
@@ -4262,7 +4275,8 @@ void Parser::DesugarAsyncFunctionBody(const AstRawString* function_name,
                                                    kNoSourcePosition)),
             zone());
 
-  Block* try_block = COST(factory()->NewBlock(NULL, 8, true, kNoSourcePosition));
+  Block* try_block =
+      COST(factory()->NewBlock(NULL, 8, true, kNoSourcePosition));
 
   ZoneList<Statement*>* inner_body = try_block->statements();
 
@@ -4271,16 +4285,15 @@ void Parser::DesugarAsyncFunctionBody(const AstRawString* function_name,
     ParseStatementList(inner_body, Token::RBRACE, CHECK_OK_CUSTOM(Void));
     return_value = COST(factory()->NewUndefinedLiteral(kNoSourcePosition));
   } else {
-    return_value =
-        COST(ParseAssignmentExpression(accept_IN, classifier, CHECK_OK_CUSTOM(Void)));
+    return_value = COST(ParseAssignmentExpression(accept_IN, classifier,
+                                                  CHECK_OK_CUSTOM(Void)));
     ParserTraits::RewriteNonPattern(classifier, CHECK_OK_CUSTOM(Void));
   }
 
   return_value = BuildPromiseResolve(return_value, return_value->position());
-  inner_body->Add(
-      COST(factory()->NewReturnStatement(return_value,
-                                         return_value->position())),
-      zone());
+  inner_body->Add(COST(factory()->NewReturnStatement(return_value,
+                                                     return_value->position())),
+                  zone());
   body->Add(BuildRejectPromiseOnException(try_block), zone());
   scope->set_end_position(scanner()->location().end_pos);
 }
@@ -4615,8 +4628,7 @@ Expression* Parser::ParseAsyncFunctionExpression(bool* ok) {
       name, scanner()->location(),
       is_strict_reserved ? kFunctionNameIsStrictReserved
                          : kFunctionNameValidityUnknown,
-      FunctionKind::kAsyncFunction, pos, type,
-      language_mode(), CHECK_OK));
+      FunctionKind::kAsyncFunction, pos, type, language_mode(), CHECK_OK));
 }
 
 void Parser::SkipLazyFunctionBody(int* materialized_literal_count,

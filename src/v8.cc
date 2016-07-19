@@ -16,12 +16,11 @@
 #include "src/isolate.h"
 #include "src/libsampler/sampler.h"
 #include "src/objects.h"
+#include "src/parsing/cost.h"
 #include "src/profiler/heap-profiler.h"
 #include "src/runtime-profiler.h"
 #include "src/snapshot/natives.h"
 #include "src/snapshot/snapshot.h"
-#include "src/parsing/cost.h"
-
 
 namespace v8 {
 namespace internal {

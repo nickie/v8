@@ -11,8 +11,8 @@
 #include "src/compiler.h"  // TODO(titzer): remove this include dependency
 #include "src/parsing/cost.h"
 #include "src/parsing/parser-base.h"
-#include "src/parsing/preparse-data.h"
 #include "src/parsing/preparse-data-format.h"
+#include "src/parsing/preparse-data.h"
 #include "src/parsing/preparser.h"
 #include "src/pending-compilation-error-handler.h"
 
