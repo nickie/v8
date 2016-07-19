@@ -15,7 +15,7 @@ namespace internal {
 
 class CostCounter : public AstTraversalVisitor {
  public:
-  CostCounter(Isolate* isolate)
+  explicit CostCounter(Isolate* isolate)
       : AstTraversalVisitor(isolate), counters_(CostCounter::MAX + 1) {}
   ~CostCounter() override {
     for (int i = 0; i <= CostCounter::MAX; i++) totals_[i] += counters_[i];
