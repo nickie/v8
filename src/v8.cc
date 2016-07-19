@@ -42,8 +42,10 @@ bool V8::Initialize() {
 
 
 void V8::TearDown() {
-  PrintF("Totals for AST generation:\n");
-  CostCounter::Totals();
+  if (FLAG_ast_cost) {
+    PrintF("Totals for AST generation:\n");
+    CostCounter::Totals();
+  }
   Bootstrapper::TearDownExtensions();
   ElementsAccessor::TearDown();
   LOperand::TearDownCaches();
