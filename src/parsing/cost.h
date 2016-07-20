@@ -15,10 +15,10 @@ namespace internal {
 
 class CostCounter : public AstTraversalVisitor {
  public:
-  explicit CostCounter(Isolate* isolate)
-      : AstTraversalVisitor(isolate), counters_(CostCounter::MAX + 1) {}
+  explicit CostCounter(Isolate* isolate) : AstTraversalVisitor(isolate) {}
   ~CostCounter() override {
-    for (int i = 0; i <= CostCounter::MAX; i++) totals_[i] += counters_[i];
+    for (auto i = counters_.begin(); i != counters_.end(); ++i)
+      totals_[i->first] += i->second;
   }
 
   void Visit(AstNode* node) {
@@ -27,37 +27,30 @@ class CostCounter : public AstTraversalVisitor {
     if (c > CostCounter::MAX) c = CostCounter::MAX;
     std::fprintf(stderr, "counting cost %d for node type %d\n", c,
                  node->node_type());
-    counters_[c]++;
+    counters_[std::make_pair(node->node_type(), c)]++;
     AstTraversalVisitor::Visit(node);
   }
 
   void Report() const { CostCounter::Report(counters_, std::cout); }
-  static void Totals() { CostCounter::Report(totals_, std::cout); }
+  static void Totals() { CostCounter::Report(totals_, std::cout, true); }
   static void Totals(std::ostream& os, const char* msg = "AST cost ") {
-    CostCounter::Report(totals_, os, msg);
+    CostCounter::Report(totals_, os, true, msg);
   }
-  static void ResetTotals() { totals_.assign(CostCounter::MAX, 0); }
+  static void ResetTotals() { totals_.clear(); }
 
  private:
-  template <class Alloc>
-  static void Report(const std::vector<int, Alloc>& counters, std::ostream& os,
-                     const char* msg = "  cost ") {
-    long double sum = 0;
-    long double count = 0;
-    os << msg;
-    for (int i = 0; i <= CostCounter::MAX; i++)
-      if (counters[i] > 0) {
-        os << i << ":" << counters[i] << ", ";
-        sum += (long double)i * counters[i];
-        count += counters[i];
-      }
-    os << "average: " << std::fixed << std::setprecision(3)
-       << (long double)(count > 0 ? sum / count : 0) << "." << std::endl;
-  }
+  typedef uint8_t cost_t;
+  typedef uint8_t node_t;
+  typedef uint32_t value_t;
+  typedef std::pair<node_t, cost_t> key_t;
+  typedef std::map<key_t, value_t> map_t;
+  static const int MAX = std::numeric_limits<cost_t>::max();
 
-  static const int MAX = 64;
-  std::vector<int> counters_;
-  static std::vector<int> totals_;
+  static void Report(const map_t& counters, std::ostream& os,
+                     bool verbose = false, const char* msg = "  cost ");
+
+  map_t counters_;
+  static map_t totals_;
 };
 
 }  // namespace internal
