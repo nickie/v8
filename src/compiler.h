@@ -6,6 +6,7 @@
 #define V8_COMPILER_H_
 
 #include "src/allocation.h"
+#include "src/ast/ast-traversal-visitor.h"
 #include "src/ast/ast.h"
 #include "src/bailout-reason.h"
 #include "src/compilation-dependencies.h"

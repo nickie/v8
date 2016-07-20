@@ -8,9 +8,7 @@
 #include <utility>
 #include <vector>
 
-#include "src/ast/ast.h"
-#include "src/ast/ast-expression-visitor.h"
-#include "src/ast/scopes.h"
+#include "src/ast/ast-traversal-visitor.h"
 
 namespace v8 {
 namespace internal {
@@ -18,28 +16,29 @@ namespace internal {
 namespace {
 
 
-class Rewriter final : public AstExpressionVisitor {
+class Rewriter final : public AstTraversalVisitor<Rewriter> {
  public:
   Rewriter(uintptr_t stack_limit, Expression* initializer, Scope* old_scope,
            Scope* new_scope)
-      : AstExpressionVisitor(stack_limit, initializer),
+      : AstTraversalVisitor(stack_limit, initializer),
         old_scope_(old_scope),
         new_scope_(new_scope),
         old_scope_closure_(old_scope->ClosureScope()),
         new_scope_closure_(new_scope->ClosureScope()) {}
   ~Rewriter();
 
+ protected:
+  friend class AstTraversalVisitor<Rewriter>;
+
+  void VisitFunctionLiteral(FunctionLiteral* expr);
+  void VisitClassLiteral(ClassLiteral* expr);
+  void VisitVariableProxy(VariableProxy* expr);
+
+  void VisitBlock(Block* stmt);
+  void VisitTryCatchStatement(TryCatchStatement* stmt);
+  void VisitWithStatement(WithStatement* stmt);
+
  private:
-  void VisitExpression(Expression* expr) override {}
-
-  void VisitFunctionLiteral(FunctionLiteral* expr) override;
-  void VisitClassLiteral(ClassLiteral* expr) override;
-  void VisitVariableProxy(VariableProxy* expr) override;
-
-  void VisitBlock(Block* stmt) override;
-  void VisitTryCatchStatement(TryCatchStatement* stmt) override;
-  void VisitWithStatement(WithStatement* stmt) override;
-
   Scope* old_scope_;
   Scope* new_scope_;
   Scope* old_scope_closure_;
