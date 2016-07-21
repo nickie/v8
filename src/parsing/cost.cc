@@ -15,9 +15,8 @@ static const char* node_name[] = {
   AST_NODE_LIST(DEFINE_NAME)
 };
 
-void CostCounter::Report(const CostCounter::map_t& counters,
-                                std::ostream& os, bool verbose,
-                                const char* msg) {
+void CostCounter::Report(const CostCounter::map_t& counters, std::ostream& os,
+                         bool verbose, const char* msg) {
   // Calculate totals per cost for all node types.
   typedef std::map<cost_t, value_t> per_cost_t;
   per_cost_t all_types;
@@ -28,8 +27,8 @@ void CostCounter::Report(const CostCounter::map_t& counters,
   long double count = 0;
   os << msg;
   for (auto i = all_types.begin(); i != all_types.end(); ++i) {
-    os << (int) (i->first) << ":" << i->second << ", ";
-    sum += (long double)(i->first) * i->second;
+    os << static_cast<int>(i->first) << ":" << i->second << ", ";
+    sum += static_cast<long double>(i->first) * i->second;
     count += i->second;
   }
   os << "average: " << std::fixed << std::setprecision(3)
@@ -46,8 +45,8 @@ void CostCounter::Report(const CostCounter::map_t& counters,
       long double count = 0;
       os << msg << "for " << node_name[i->first] << " ";
       for (auto j = i->second.begin(); j != i->second.end(); ++j) {
-        os << (int) (j->first) << ":" << j->second << ", ";
-        sum += (long double)(j->first) * j->second;
+        os << static_cast<int>(j->first) << ":" << j->second << ", ";
+        sum += static_cast<long double>(j->first) * j->second;
         count += j->second;
       }
       os << "average: " << std::fixed << std::setprecision(3)
