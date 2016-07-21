@@ -8,27 +8,27 @@
 #include <iomanip>
 #include <iostream>
 
-#include "src/ast/ast.h"
+#include "src/ast/ast-traversal-visitor.h"
 
 namespace v8 {
 namespace internal {
 
-class CostCounter : public AstTraversalVisitor {
+class CostCounter : public AstTraversalVisitor<CostCounter> {
  public:
   explicit CostCounter(Isolate* isolate) : AstTraversalVisitor(isolate) {}
-  ~CostCounter() override {
+  ~CostCounter() {
     for (auto i = counters_.begin(); i != counters_.end(); ++i)
       totals_[i->first] += i->second;
   }
 
-  void Visit(AstNode* node) {
+  bool VisitNode(AstNode* node) {
     DCHECK_NOT_NULL(node);
     int c = node->cost(false);
     if (c > CostCounter::MAX) c = CostCounter::MAX;
     std::fprintf(stderr, "counting cost %d for node type %d\n", c,
                  node->node_type());
     counters_[std::make_pair(node->node_type(), c)]++;
-    AstTraversalVisitor::Visit(node);
+    return true;
   }
 
   void Report() const { CostCounter::Report(counters_, std::cout); }
