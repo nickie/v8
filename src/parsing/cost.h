@@ -25,8 +25,6 @@ class CostCounter : public AstTraversalVisitor<CostCounter> {
     DCHECK_NOT_NULL(node);
     int c = node->cost(false);
     if (c > CostCounter::MAX) c = CostCounter::MAX;
-    std::fprintf(stderr, "counting cost %d for node type %d\n", c,
-                 node->node_type());
     counters_[std::make_pair(node->node_type(), c)]++;
     return true;
   }

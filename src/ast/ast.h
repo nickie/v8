@@ -201,9 +201,6 @@ class AstNode: public ZoneObject {
   int position() const { return position_; }
   int cost(bool inlined) const { return inlined ? cost_inline_ : cost_; }
   void increase_cost(bool inlined) {
-    if (FLAG_ast_cost)
-      std::fprintf(stderr, "cost increase for node type %d %s\n",
-                   node_type(), inlined ? "inlined" : "not inlined");
     if (inlined)
       ++cost_inline_;
     else
